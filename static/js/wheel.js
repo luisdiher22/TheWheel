@@ -1,3 +1,49 @@
+(function() { // IIFE Start
+
+// Constants
+const INITIAL_CREDITS = 100;
+const DEFAULT_SPIN_COST = 10;
+const MIN_SPINS = 2; // Minimum full rotations for the wheel
+const SPIN_DURATION_MS = 3000;
+const CANVAS_WIDTH = 400;
+const CANVAS_HEIGHT = 400;
+const WHEEL_RADIUS = 200;
+const POINTER_OFFSET_DEGREES = 90; // Offset to align the pointer at the top
+const PARTICLE_AMOUNT_SMALL_WIN = 20;
+const PARTICLE_AMOUNT_BIG_WIN = 50;
+const PARTICLE_DURATION_MS = 3000;
+const SHAKE_INTENSITY_SMALL = 5;
+const SHAKE_DURATION_SMALL_MS = 500;
+const SHAKE_INTENSITY_GAME_OVER = 10;
+const SHAKE_DURATION_GAME_OVER_MS = 1000;
+const SHAKE_INTENSITY_BIG_WIN = 5;
+const SHAKE_DURATION_BIG_WIN_MS = 800;
+const WIN_MESSAGE_DURATION_MS = 2000;
+const BALANCE_UPDATE_ANIMATION_MS = 500;
+const ANTI_CLUMP_MAX_ATTEMPTS = 100; // For distributeEvenly function
+const THEME_COLOR_PRIMARY_RED_BASE = 52;
+const THEME_COLOR_PRIMARY_RED_MULTIPLIER_EFFECT = 20;
+const THEME_COLOR_PRIMARY_GREEN_BASE = 152;
+const THEME_COLOR_PRIMARY_GREEN_MULTIPLIER_EFFECT = 10;
+const THEME_COLOR_PRIMARY_BLUE_BASE = 219;
+const THEME_COLOR_PRIMARY_BLUE_MULTIPLIER_EFFECT = 15;
+const THEME_COLOR_ACCENT_RED_BASE = 231;
+const THEME_COLOR_ACCENT_RED_MULTIPLIER_EFFECT = 5;
+const THEME_COLOR_ACCENT_GREEN_BASE = 76;
+const THEME_COLOR_ACCENT_GREEN_MULTIPLIER_EFFECT = 5;
+const THEME_COLOR_ACCENT_BLUE_BASE = 60;
+const THEME_COLOR_ACCENT_BLUE_MULTIPLIER_EFFECT = 5;
+const THEME_COLOR_ACCENT_HOVER_RED_DECREASE = 30;
+const THEME_COLOR_ACCENT_HOVER_GREEN_DECREASE = 20;
+const THEME_COLOR_ACCENT_HOVER_BLUE_DECREASE = 10;
+const THEME_COLOR_BACKGROUND_DARKNESS_BASE = 44;
+const THEME_COLOR_BACKGROUND_DARKNESS_MULTIPLIER_EFFECT = 3;
+const THEME_COLOR_UI_BACKGROUND_DARKNESS_BASE = 52;
+const THEME_COLOR_UI_BACKGROUND_DARKNESS_MULTIPLIER_EFFECT = 3;
+const BACKGROUND_MUSIC_DELAY_MS = 1000;
+const WELCOME_MESSAGE_DELAY_MS = 500;
+
+
 const canvas = document.getElementById("wheel");
 const ctx = canvas.getContext("2d");
 const spinBtn = document.getElementById("spinBtn");
@@ -13,8 +59,8 @@ const particlesContainer = document.getElementById("particles-container");
 const toggleSoundBtn = document.getElementById("toggleSound");
 
 // Game settings
-let spinCost = 10;
-let credits = parseInt(balanceElement.textContent);
+let spinCost = DEFAULT_SPIN_COST;
+let credits = INITIAL_CREDITS; // Initialize with constant
 let gameOver = false;
 let currentMultiplier = 1;
 let isSpinning = false;
@@ -54,11 +100,14 @@ function distributeEvenly(frequencies) {
     const keys = Object.keys(frequencies);
 
     // Initialize all positions to ensure no undefined values
+    // This prevents holes in the distribution if logic below has issues.
     for (let i = 0; i < total; i++) {
         result[i] = "";
     }
 
-    // First pass: distribute values evenly
+    // First pass: Distribute values as evenly as possible.
+    // The goal is to place items such that they are spread out,
+    // using a step based on the total items and the frequency of each specific item.
     let currentIndex = 0;
     for (let key of keys) {
         const count = frequencies[key];
@@ -70,7 +119,9 @@ function distributeEvenly(frequencies) {
         }
     }
 
-    // Second pass: fill any remaining empty spots
+    // Second pass: Fill any remaining empty spots.
+    // This handles cases where the first pass might leave gaps due to rounding.
+    // It tries to fill gaps with the most "underrepresented" item at that point.
     for (let i = 0; i < total; i++) {
         if (result[i] === "") {
             // Find the most underrepresented value
@@ -81,7 +132,7 @@ function distributeEvenly(frequencies) {
                 if (val !== "") counts[val]++;
             });
 
-            const minKey = keys.reduce((a, b) => 
+            const minKey = keys.reduce((a, b) =>
                 (counts[a] / frequencies[a] < counts[b] / frequencies[b]) ? a : b
             );
 
@@ -89,7 +140,10 @@ function distributeEvenly(frequencies) {
         }
     }
 
-    // Improved anti-clump shuffle to ensure good distribution
+    // Third pass: Shuffle the array to further randomize distribution.
+    // This helps break up any patterns that might have emerged from the deterministic placement.
+    // Uses a Fisher-Yates-like shuffle, but with a condition to avoid swapping identical elements
+    // if they happen to be picked (though less restrictive now).
     for (let i = result.length - 1; i > 0; i--) {
         let j = Math.floor(Math.random() * (i + 1));
         // Less restrictive swap condition to allow more shuffling
@@ -98,9 +152,11 @@ function distributeEvenly(frequencies) {
         }
     }
 
-    // Final pass: specifically eliminate adjacent duplicates
+    // Final pass: Anti-clumping mechanism.
+    // Specifically targets and tries to eliminate adjacent duplicate values.
+    // Iteratively checks for and swaps adjacent duplicates with other non-adjacent, non-duplicate-creating values.
     let hasAdjacent = true;
-    let maxAttempts = 100; // Prevent infinite loops
+    let maxAttempts = ANTI_CLUMP_MAX_ATTEMPTS; // Prevent infinite loops
 
     while (hasAdjacent && maxAttempts > 0) {
         hasAdjacent = false;
@@ -114,19 +170,20 @@ function distributeEvenly(frequencies) {
 
                 // Find a non-adjacent position to swap with
                 for (let j = 0; j < total; j++) {
-                    // Skip adjacent positions
+                    // Skip adjacent positions (itself, its direct neighbors)
                     if (j === i || j === next || j === (i + total - 1) % total || j === (next + 1) % total) {
                         continue;
                     }
 
-                    // Check if swap would create new adjacency
+                    // Check if swapping result[next] with result[j] would create new adjacencies for result[next]
+                    // at its new position j.
                     const jPrev = (j + total - 1) % total;
                     const jNext = (j + 1) % total;
 
                     if (result[jPrev] !== result[next] && result[jNext] !== result[next]) {
-                        // Safe to swap
+                        // Safe to swap: result[next] (the duplicate) is swapped with result[j]
                         [result[next], result[j]] = [result[j], result[next]];
-                        break;
+                        break; // Break from inner loop to re-evaluate from the start of the outer loop
                     }
                 }
             }
@@ -136,8 +193,8 @@ function distributeEvenly(frequencies) {
     return result;
 }
  const sections = distributeEvenly({
-    "0": 10,
-    "2": 12,
+    "0": 10, // Number of "0" sections
+    "2": 12, // Number of "2" sections
     "5": 8,
     "10": 5,
     "25": 3,
@@ -176,29 +233,29 @@ function drawWheel() {
         const endAngle = startAngle + arcSize;
 
         ctx.beginPath();
-        ctx.moveTo(200, 200);
-        ctx.arc(200, 200, 200, startAngle, endAngle);
+        ctx.moveTo(WHEEL_RADIUS, WHEEL_RADIUS); // Center X, Center Y
+        ctx.arc(WHEEL_RADIUS, WHEEL_RADIUS, WHEEL_RADIUS, startAngle, endAngle); // Center X, Center Y, Radius
         ctx.fillStyle = colors[i];
         ctx.fill();
 
         ctx.save();
-        ctx.translate(200, 200);
+        ctx.translate(WHEEL_RADIUS, WHEEL_RADIUS); // Center X, Center Y
         ctx.rotate(startAngle + arcSize / 2);
         ctx.textAlign = "right";
         ctx.fillStyle = "#fff";
         ctx.font = "bold 16px 'Segoe UI', sans-serif";
-        ctx.fillText(sections[i], 190, 10);
+        ctx.fillText(sections[i], WHEEL_RADIUS - 10, 10); // Position text near edge of segment
         ctx.restore();
 
     }
 }
 
 function drawRotatedWheel(rotation) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     ctx.save();
-    ctx.translate(200, 200);
+    ctx.translate(WHEEL_RADIUS, WHEEL_RADIUS); // Center X, Center Y
     ctx.rotate(rotation * Math.PI / 180);
-    ctx.translate(-200, -200);
+    ctx.translate(-WHEEL_RADIUS, -WHEEL_RADIUS); // Center X, Center Y
     drawWheel();
     ctx.restore();
 
@@ -209,7 +266,7 @@ function drawRotatedWheel(rotation) {
 
 
 // Particle system for celebrations
-function createParticles(amount, colors, duration = 3000) {
+function createParticles(amount, colors, duration = PARTICLE_DURATION_MS) {
     if (!particlesContainer) return;
 
     particlesContainer.innerHTML = '';
@@ -219,7 +276,7 @@ function createParticles(amount, colors, duration = 3000) {
         particle.className = 'particle';
 
         // Random position, size, and color
-        const size = Math.random() * 10 + 5;
+        const size = Math.random() * 10 + 5; // Particle size between 5px and 15px
         const color = colors[Math.floor(Math.random() * colors.length)];
 
         particle.style.width = `${size}px`;
@@ -280,7 +337,7 @@ function shakeScreen(intensity = 5, duration = 500) {
             body.style.transform = `translate(${x}px, ${y}px)`;
             requestAnimationFrame(shake);
         } else {
-            body.style.transform = '';
+            body.style.transform = ''; // Reset transform
         }
     }
 
@@ -288,7 +345,7 @@ function shakeScreen(intensity = 5, duration = 500) {
 }
 
 // Show win message
-function showWinMessage(message, duration = 2000) {
+function showWinMessage(message, duration = WIN_MESSAGE_DURATION_MS) {
     winMessageElement.textContent = message;
     winMessageElement.classList.remove('hidden');
     winMessageElement.classList.add('show');
@@ -297,7 +354,7 @@ function showWinMessage(message, duration = 2000) {
         winMessageElement.classList.remove('show');
         setTimeout(() => {
             winMessageElement.classList.add('hidden');
-        }, 500);
+        }, BALANCE_UPDATE_ANIMATION_MS); // Use constant for consistency
     }, duration);
 }
 
@@ -321,7 +378,7 @@ function updateBalance(amount) {
 
     // Animate the balance change
     balanceElement.classList.add('updated');
-    setTimeout(() => balanceElement.classList.remove('updated'), 500);
+    setTimeout(() => balanceElement.classList.remove('updated'), BALANCE_UPDATE_ANIMATION_MS);
 
     // Update the display
     balanceElement.textContent = credits;
@@ -333,7 +390,7 @@ function updateBalance(amount) {
         resultDiv.textContent = "Game Over! You're out of credits.";
         resultDiv.classList.add("game-over");
         playSound(sounds.lose);
-        shakeScreen(10, 1000);
+        shakeScreen(SHAKE_INTENSITY_GAME_OVER, SHAKE_DURATION_GAME_OVER_MS);
     }
 }
 
@@ -363,10 +420,14 @@ function spinWheel() {
     if (isSpinning) return;
 
     // Check if player has enough credits
+    // Check if already spinning
+    if (isSpinning) return;
+
+    // Check if player has enough credits
     if (credits < spinCost) {
         resultDiv.textContent = "Not enough credits to spin!";
         resultDiv.classList.add('updated');
-        setTimeout(() => resultDiv.classList.remove('updated'), 500);
+        setTimeout(() => resultDiv.classList.remove('updated'), BALANCE_UPDATE_ANIMATION_MS);
         playSound(sounds.lose);
         return;
     }
@@ -383,88 +444,107 @@ function spinWheel() {
     // Deduct the spin cost
     updateBalance(-spinCost);
 
-    const randomSpin = Math.random() * 360 + 720; // Spin at least 2 full turns
-    const duration = 3000; // 3 seconds
-    const start = performance.now();
+    // Calculate a random amount of rotation.
+    // Ensures at least MIN_SPINS full turns plus a random portion of another turn.
+    const randomExtraSpins = Math.random() * 360; // Random angle for the final position
+    const totalRotation = (MIN_SPINS * 360) + randomExtraSpins; // Total degrees to spin
+    const animationStartTime = performance.now();
 
-    function animate(time) {
-        const progress = (time - start) / duration;
+    function animate(currentTime) {
+        const elapsedTime = currentTime - animationStartTime;
+        const progress = elapsedTime / SPIN_DURATION_MS;
+
         if (progress < 1) {
-            const currentSpin = easeOutCubic(progress) * randomSpin;
-            angle = currentSpin;
-            drawRotatedWheel(angle);
-            requestAnimationFrame(animate);
+            // Apply easing function to make the spin smooth (starts fast, slows down)
+            const currentSpinAmount = easeOutCubic(progress) * totalRotation;
+            angle = currentSpinAmount; // Update the global angle
+            drawRotatedWheel(angle); // Redraw the wheel at the new angle
+            requestAnimationFrame(animate); // Continue animation
         } else {
-            // End spinning state
+            // --- Spin Finished ---
             isSpinning = false;
             wheelWrapper.classList.remove('spinning');
             spinBtn.classList.remove('spinning');
 
-            const finalAngle = (angle + 90) % 360; // Offset to align with top
-            const index = Math.floor((numSections - (finalAngle / 360) * numSections) % numSections);
-            const selectedIndex = (index + numSections) % numSections; // Ensure non-negative
-            const baseWinAmount = parseInt(sections[selectedIndex]);
-
-            // Calculate bet multiplier (bet amount / 10)
-            const betMultiplier = spinCost / 10;
-            const totalWinAmount = Math.round(baseWinAmount * betMultiplier);
-
-            // Determine win size and apply appropriate effects
-            let winSize = '';
-            let winMessage = '';
-
-            if (totalWinAmount === 0) {
-                // Lose
-                resultDiv.textContent = `No win this time! (${baseWinAmount} × ${betMultiplier}x bet)`;
-                resultDiv.className = ''; // Reset classes
-                resultDiv.classList.add('updated');
-                playSound(sounds.lose);
-            } else if (totalWinAmount <= 25 * betMultiplier) {
-                // Small win
-                winSize = 'win-small';
-                resultDiv.textContent = `You won: ${totalWinAmount} points (${baseWinAmount} × ${betMultiplier}x bet)`;
-                playSound(sounds.win);
-            } else if (totalWinAmount <= 100 * betMultiplier) {
-                // Medium win
-                winSize = 'win-medium';
-                winMessage = 'Nice Win!';
-                resultDiv.textContent = `You won: ${totalWinAmount} points (${baseWinAmount} × ${betMultiplier}x bet)`;
-                playSound(sounds.win);
-                createParticles(20, ['#f1c40f', '#3498db', '#e74c3c']);
-            } else {
-                // Big win
-                winSize = 'win-large';
-                winMessage = 'BIG WIN!';
-                resultDiv.textContent = `You won: ${totalWinAmount} points (${baseWinAmount} × ${betMultiplier}x bet)`;
-                playSound(sounds.bigWin);
-                createParticles(50, ['#f1c40f', '#e74c3c', '#2ecc71', '#9b59b6']);
-                shakeScreen(5, 800);
-            }
-
-            // Apply win styling
-            if (winSize) {
-                resultDiv.className = ''; // Reset classes
-                resultDiv.classList.add(winSize);
-                resultDiv.classList.add('updated');
-            }
-
-            // Show win message if applicable
-            if (winMessage) {
-                showWinMessage(winMessage);
-            }
-
-            // Add the winnings to the player's balance
-            updateBalance(totalWinAmount);
-
-            // Add to history
-            addToHistory(sections[selectedIndex], totalWinAmount, betMultiplier);
+            // Calculate the final resting position of the wheel.
+            // The angle is taken modulo 360 to get the final orientation.
+            // POINTER_OFFSET_DEGREES is added to align the "winning" segment with a visual pointer (e.g., at the top).
+            const finalAngle = (angle + POINTER_OFFSET_DEGREES) % 360;
+            handleSpinResult(finalAngle);
         }
     }
 
     requestAnimationFrame(animate);
 }
 
+// Helper function to process the outcome of the spin
+function handleSpinResult(finalAngle) {
+    // Determine the winning section index.
+    // The wheel is divided into `numSections`. Each section has an `arcSize`.
+    // `finalAngle / 360` gives the proportion of the circle rotated.
+    // Multiplying by `numSections` gives a raw index.
+    // `numSections - ...` is used because the wheel spins clockwise, but sections might be indexed counter-clockwise or from a different reference.
+    // The result is taken modulo `numSections` and adjusted to ensure it's a non-negative integer.
+    const rawIndex = Math.floor((numSections - (finalAngle / 360) * numSections) % numSections);
+    const selectedIndex = (rawIndex + numSections) % numSections; // Ensures non-negative index
 
+    const baseWinAmount = parseInt(sections[selectedIndex]);
+
+    // Calculate the actual win amount based on the current bet multiplier.
+    // The spinCost is derived from DEFAULT_SPIN_COST * currentMultiplier.
+    const betMultiplier = spinCost / DEFAULT_SPIN_COST;
+    const totalWinAmount = Math.round(baseWinAmount * betMultiplier);
+
+    // --- Determine win size and apply appropriate effects ---
+    let winSize = ''; // CSS class for styling the result text
+    let winMessage = ''; // Special message for larger wins
+
+    if (totalWinAmount === 0) {
+        // --- Lose Scenario ---
+        resultDiv.textContent = `No win this time! (${baseWinAmount} × ${betMultiplier}x bet)`;
+        resultDiv.className = ''; // Reset classes
+        resultDiv.classList.add('updated'); // For animation
+        playSound(sounds.lose);
+    } else if (totalWinAmount <= 25 * betMultiplier) { // Threshold for small win
+        // --- Small Win Scenario ---
+        winSize = 'win-small';
+        resultDiv.textContent = `You won: ${totalWinAmount} points (${baseWinAmount} × ${betMultiplier}x bet)`;
+        playSound(sounds.win);
+    } else if (totalWinAmount <= 100 * betMultiplier) { // Threshold for medium win
+        // --- Medium Win Scenario ---
+        winSize = 'win-medium';
+        winMessage = 'Nice Win!';
+        resultDiv.textContent = `You won: ${totalWinAmount} points (${baseWinAmount} × ${betMultiplier}x bet)`;
+        playSound(sounds.win);
+        createParticles(PARTICLE_AMOUNT_SMALL_WIN, ['#f1c40f', '#3498db', '#e74c3c']); // Yellow, Blue, Red particles
+    } else {
+        // --- Big Win Scenario ---
+        winSize = 'win-large';
+        winMessage = 'BIG WIN!';
+        resultDiv.textContent = `You won: ${totalWinAmount} points (${baseWinAmount} × ${betMultiplier}x bet)`;
+        playSound(sounds.bigWin);
+        createParticles(PARTICLE_AMOUNT_BIG_WIN, ['#f1c40f', '#e74c3c', '#2ecc71', '#9b59b6']); // Yellow, Red, Green, Purple particles
+        shakeScreen(SHAKE_INTENSITY_BIG_WIN, SHAKE_DURATION_BIG_WIN_MS);
+    }
+
+    // Apply win styling if there was a win
+    if (winSize) {
+        resultDiv.className = ''; // Reset classes
+        resultDiv.classList.add(winSize);
+        resultDiv.classList.add('updated');
+    }
+
+    // Show win message if applicable
+    if (winMessage) {
+        showWinMessage(winMessage);
+    }
+
+    // Add the winnings to the player's balance
+    updateBalance(totalWinAmount);
+
+    // Add to history
+    addToHistory(sections[selectedIndex], totalWinAmount, betMultiplier);
+}
 
 function easeOutCubic(t) {
     return (--t) * t * t + 1;
@@ -474,20 +554,20 @@ function easeOutCubic(t) {
 function updateThemeColors(multiplier) {
     // Calculate color values based on multiplier
     // As multiplier increases, colors shift more towards red
-    const redIntensity = Math.min(255, 52 + (multiplier - 1) * 20); // 52 is the base red value in #3498db
-    const greenIntensity = Math.max(100, 152 - (multiplier - 1) * 10); // 152 is the base green value in #3498db
-    const blueIntensity = Math.max(100, 219 - (multiplier - 1) * 15); // 219 is the base blue value in #3498db
+    const redIntensity = Math.min(255, THEME_COLOR_PRIMARY_RED_BASE + (multiplier - 1) * THEME_COLOR_PRIMARY_RED_MULTIPLIER_EFFECT);
+    const greenIntensity = Math.max(100, THEME_COLOR_PRIMARY_GREEN_BASE - (multiplier - 1) * THEME_COLOR_PRIMARY_GREEN_MULTIPLIER_EFFECT);
+    const blueIntensity = Math.max(100, THEME_COLOR_PRIMARY_BLUE_BASE - (multiplier - 1) * THEME_COLOR_PRIMARY_BLUE_MULTIPLIER_EFFECT);
 
     // Create new primary color with increased red component
     const newPrimaryColor = `rgb(${redIntensity}, ${greenIntensity}, ${blueIntensity})`;
 
     // Create new accent color with increased red component
-    const accentRedIntensity = Math.min(255, 231 + (multiplier - 1) * 5); // 231 is the base red value in #e74c3c
-    const accentGreenIntensity = Math.max(50, 76 - (multiplier - 1) * 5); // 76 is the base green value in #e74c3c
-    const accentBlueIntensity = Math.max(50, 60 - (multiplier - 1) * 5); // 60 is the base blue value in #e74c3c
+    const accentRedIntensity = Math.min(255, THEME_COLOR_ACCENT_RED_BASE + (multiplier - 1) * THEME_COLOR_ACCENT_RED_MULTIPLIER_EFFECT);
+    const accentGreenIntensity = Math.max(50, THEME_COLOR_ACCENT_GREEN_BASE - (multiplier - 1) * THEME_COLOR_ACCENT_GREEN_MULTIPLIER_EFFECT);
+    const accentBlueIntensity = Math.max(50, THEME_COLOR_ACCENT_BLUE_BASE - (multiplier - 1) * THEME_COLOR_ACCENT_BLUE_MULTIPLIER_EFFECT);
 
     const newAccentColor = `rgb(${accentRedIntensity}, ${accentGreenIntensity}, ${accentBlueIntensity})`;
-    const newAccentHoverColor = `rgb(${Math.max(150, accentRedIntensity - 30)}, ${Math.max(30, accentGreenIntensity - 20)}, ${Math.max(30, accentBlueIntensity - 10)})`;
+    const newAccentHoverColor = `rgb(${Math.max(150, accentRedIntensity - THEME_COLOR_ACCENT_HOVER_RED_DECREASE)}, ${Math.max(30, accentGreenIntensity - THEME_COLOR_ACCENT_HOVER_GREEN_DECREASE)}, ${Math.max(30, accentBlueIntensity - THEME_COLOR_ACCENT_HOVER_BLUE_DECREASE)})`;
 
     // Update CSS variables
     document.documentElement.style.setProperty('--primary-color', newPrimaryColor);
@@ -495,9 +575,9 @@ function updateThemeColors(multiplier) {
     document.documentElement.style.setProperty('--accent-hover', newAccentHoverColor);
 
     // Update background colors for higher multipliers
-    if (multiplier >= 5) {
-        const bgDarkness = Math.max(20, 44 - (multiplier - 5) * 3); // 44 is the base value in #2c3e50
-        const uiBgDarkness = Math.max(30, 52 - (multiplier - 5) * 3); // 52 is the base value in #34495e
+    if (multiplier >= 5) { // Start changing background at 5x multiplier
+        const bgDarkness = Math.max(20, THEME_COLOR_BACKGROUND_DARKNESS_BASE - (multiplier - 5) * THEME_COLOR_BACKGROUND_DARKNESS_MULTIPLIER_EFFECT);
+        const uiBgDarkness = Math.max(30, THEME_COLOR_UI_BACKGROUND_DARKNESS_BASE - (multiplier - 5) * THEME_COLOR_UI_BACKGROUND_DARKNESS_MULTIPLIER_EFFECT);
 
         document.documentElement.style.setProperty('--background-color', `rgb(${bgDarkness}, ${bgDarkness + 12}, ${bgDarkness + 24})`);
         document.documentElement.style.setProperty('--ui-background', `rgb(${uiBgDarkness}, ${uiBgDarkness + 12}, ${uiBgDarkness + 24})`);
@@ -518,8 +598,8 @@ function initGame() {
         multiplierValue.textContent = `${currentMultiplier}x`;
 
         // Update spin cost
-        spinCost = 10 * currentMultiplier;
-        creditCostElement.textContent = `Credit cost: <span class="highlight">${spinCost}</span>`;
+        spinCost = DEFAULT_SPIN_COST * currentMultiplier;
+        creditCostElement.innerHTML = `Credit cost: <span class="highlight">${spinCost}</span>`; // Use innerHTML for span
 
         // Update theme colors based on multiplier
         updateThemeColors(currentMultiplier);
@@ -554,17 +634,17 @@ function initGame() {
     // Initial render
     drawWheel();
 
-    // Start background music
+    // Start background music after a short delay
     setTimeout(() => {
         if (soundEnabled) {
             sounds.background.play().catch(e => console.log("Background music autoplay prevented:", e));
         }
-    }, 1000);
+    }, BACKGROUND_MUSIC_DELAY_MS);
 
-    // Add welcome animation
+    // Add welcome animation message
     setTimeout(() => {
         showWinMessage("Welcome to Wheel of Fortune!");
-    }, 500);
+    }, WELCOME_MESSAGE_DELAY_MS);
 }
 
 // Add CSS for particles
@@ -580,3 +660,5 @@ particleStyle.textContent = `
 document.head.appendChild(particleStyle);
 
 initGame();
+
+})(); // IIFE End
