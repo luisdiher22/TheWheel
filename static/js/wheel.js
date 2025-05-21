@@ -43,6 +43,48 @@ const THEME_COLOR_UI_BACKGROUND_DARKNESS_MULTIPLIER_EFFECT = 3;
 const BACKGROUND_MUSIC_DELAY_MS = 1000;
 const WELCOME_MESSAGE_DELAY_MS = 500;
 
+const XP_PER_SPIN = 10;
+
+// Power-up Definitions
+const powerUpsData = [
+    {
+        id: 'bonusCredits',
+        name: 'Credit Stash!',
+        description: 'Instantly gain 50 credits.',
+        applyEffect: function() {
+            updateBalance(50);
+            showWinMessage('Gained 50 Credits!');
+            playSound(sounds.bigWin); // Use a positive sound
+        }
+    },
+    {
+        id: 'freeSpin',
+        name: 'Free Spin',
+        description: 'Your next spin is free!',
+        applyEffect: function() {
+            activePowerUps.freeSpins += 1;
+            showWinMessage('Next Spin is Free!');
+            playSound(sounds.win); // Use a positive sound
+        }
+    },
+    {
+        id: 'costHalved',
+        name: 'Spin Sale!',
+        description: 'Your next 3 spins cost 50% less.',
+        applyEffect: function() {
+            activePowerUps.costHalvedSpins = 3;
+            showWinMessage('Next 3 Spins 50% Off!');
+            playSound(sounds.win); // Use a positive sound
+        }
+    }
+];
+
+let activePowerUps = {
+    freeSpins: 0,
+    costHalvedSpins: 0
+};
+
+
 
 const canvas = document.getElementById("wheel");
 const ctx = canvas.getContext("2d");
@@ -57,14 +99,26 @@ const wheelWrapper = document.getElementById("wheel-wrapper");
 const winMessageElement = document.getElementById("win-message");
 const particlesContainer = document.getElementById("particles-container");
 const toggleSoundBtn = document.getElementById("toggleSound");
+const levelDisplay = document.getElementById('level-display');
+const xpDisplay = document.getElementById('xp-display');
+const xpBarFill = document.getElementById('xp-bar-fill');
+const powerupModal = document.getElementById('powerup-modal');
+const powerUpChoicesDiv = document.getElementById('powerup-choices'); // Assuming this is the container for buttons
 
 // Game settings
-let spinCost = DEFAULT_SPIN_COST;
+
+let spinCost = DEFAULT_SPIN_COST; // This is the base cost from multiplier
+
 let credits = INITIAL_CREDITS; // Initialize with constant
 let gameOver = false;
 let currentMultiplier = 1;
 let isSpinning = false;
 let soundEnabled = true;
+let currentXP = 0;
+let currentLevel = 1;
+// Forward declaration for calculateXpForLevel, will be defined soon
+let xpToNextLevel;
+
 
 // Sound effects
 const sounds = {
@@ -423,8 +477,26 @@ function spinWheel() {
     // Check if already spinning
     if (isSpinning) return;
 
-    // Check if player has enough credits
-    if (credits < spinCost) {
+
+    let actualSpinCost = spinCost; // Base cost for this spin, potentially modified by power-ups
+    let isFreeSpin = false;
+
+    if (activePowerUps.freeSpins > 0) {
+        activePowerUps.freeSpins--;
+        isFreeSpin = true;
+        actualSpinCost = 0;
+        showWinMessage("Free Spin Used!", 1500); // Shorter message
+        // Consider updating a UI element that shows activePowerUps.freeSpins count
+    } else if (activePowerUps.costHalvedSpins > 0) {
+        activePowerUps.costHalvedSpins--;
+        actualSpinCost = spinCost / 2;
+        showWinMessage("Half Price Spin Used!", 1500); // Shorter message
+         // Consider updating a UI element that shows activePowerUps.costHalvedSpins count
+    }
+
+    // Check if player has enough credits for the actualSpinCost
+    if (credits < actualSpinCost && !isFreeSpin) { // Free spins don't care about credit check
+
         resultDiv.textContent = "Not enough credits to spin!";
         resultDiv.classList.add('updated');
         setTimeout(() => resultDiv.classList.remove('updated'), BALANCE_UPDATE_ANIMATION_MS);
@@ -441,8 +513,12 @@ function spinWheel() {
     playSound(sounds.spin);
     playSound(sounds.click);
 
-    // Deduct the spin cost
-    updateBalance(-spinCost);
+    // Deduct the actual spin cost (could be 0 for free spin)
+    if (!isFreeSpin) { // Only deduct if not a free spin
+        updateBalance(-actualSpinCost);
+    }
+
+
 
     // Calculate a random amount of rotation.
     // Ensures at least MIN_SPINS full turns plus a random portion of another turn.
@@ -453,6 +529,7 @@ function spinWheel() {
     function animate(currentTime) {
         const elapsedTime = currentTime - animationStartTime;
         const progress = elapsedTime / SPIN_DURATION_MS;
+
 
         if (progress < 1) {
             // Apply easing function to make the spin smooth (starts fast, slows down)
@@ -472,6 +549,7 @@ function spinWheel() {
             const finalAngle = (angle + POINTER_OFFSET_DEGREES) % 360;
             handleSpinResult(finalAngle);
         }
+
     }
 
     requestAnimationFrame(animate);
@@ -544,6 +622,155 @@ function handleSpinResult(finalAngle) {
 
     // Add to history
     addToHistory(sections[selectedIndex], totalWinAmount, betMultiplier);
+
+    // Award XP
+    currentXP += XP_PER_SPIN;
+    checkLevelUp();
+    updateXpUI();
+}
+
+// Calculate XP needed for a given level
+function calculateXpForLevel(level) {
+    return level * 100;
+}
+
+// Update XP and Level UI elements
+function updateXpUI() {
+    if (levelDisplay) levelDisplay.textContent = `Level: ${currentLevel}`;
+    if (xpDisplay) xpDisplay.textContent = `XP: ${currentXP} / ${xpToNextLevel}`;
+    if (xpBarFill) {
+        const xpPercentage = (currentXP / xpToNextLevel) * 100;
+        xpBarFill.style.width = `${xpPercentage}%`;
+        // Optional: add text inside the bar
+        // xpBarFill.textContent = `${Math.round(xpPercentage)}%`;
+
+    }
+}
+
+// Check for level up
+function checkLevelUp() {
+    while (currentXP >= xpToNextLevel) {
+        currentXP -= xpToNextLevel;
+        currentLevel++;
+        xpToNextLevel = calculateXpForLevel(currentLevel);
+        displayPowerUpChoices(); // Show modal instead of console.log
+        // Potentially play a level-up sound or show a quick animation here if desired later.
+        // If we level up, we immediately update UI and check again in case of multiple level ups
+        updateXpUI(); // Update UI to reflect new level and XP requirement before next loop iteration
+    }
+}
+
+
+// Display power-up choices in the modal
+function displayPowerUpChoices() {
+    if (!powerupModal || !powerUpChoicesDiv) return;
+
+    // For now, select the first 3 power-ups.
+    // Future: Implement random selection of 3 unique power-ups if powerUpsData.length > 3
+    const selectedChoices = powerUpsData.slice(0, 3);
+
+    const choiceButtons = powerUpChoicesDiv.querySelectorAll('.powerup-choice-btn');
+
+    choiceButtons.forEach((button, index) => {
+        if (selectedChoices[index]) {
+            const powerUp = selectedChoices[index];
+            button.querySelector('.powerup-name').textContent = powerUp.name;
+            button.querySelector('.powerup-description').textContent = powerUp.description;
+            button.dataset.powerupId = powerUp.id;
+            button.style.display = ''; // Make sure button is visible
+        } else {
+            button.style.display = 'none'; // Hide button if not enough power-ups
+        }
+    });
+
+    powerupModal.classList.remove('hidden');
+}
+
+// Handle click on a power-up choice button
+function handlePowerUpSelection(event) {
+    const button = event.target.closest('.powerup-choice-btn');
+    if (!button) return;
+
+    const powerupId = button.dataset.powerupId;
+    const selectedPowerUp = powerUpsData.find(p => p.id === powerupId);
+
+    if (selectedPowerUp && selectedPowerUp.applyEffect) {
+        selectedPowerUp.applyEffect();
+    }
+
+    powerupModal.classList.add('hidden');
+    // Optional: Add a small delay or animation before hiding
+    // setTimeout(() => powerupModal.classList.add('hidden'), 300);
+}
+
+// Helper function to process the outcome of the spin
+function handleSpinResult(finalAngle) {
+    // Determine the winning section index.
+    // The wheel is divided into `numSections`. Each section has an `arcSize`.
+    // `finalAngle / 360` gives the proportion of the circle rotated.
+    // Multiplying by `numSections` gives a raw index.
+    // `numSections - ...` is used because the wheel spins clockwise, but sections might be indexed counter-clockwise or from a different reference.
+    // The result is taken modulo `numSections` and adjusted to ensure it's a non-negative integer.
+    const rawIndex = Math.floor((numSections - (finalAngle / 360) * numSections) % numSections);
+    const selectedIndex = (rawIndex + numSections) % numSections; // Ensures non-negative index
+
+    const baseWinAmount = parseInt(sections[selectedIndex]);
+
+    // Calculate the actual win amount based on the current bet multiplier.
+    // The spinCost is derived from DEFAULT_SPIN_COST * currentMultiplier.
+    const betMultiplier = spinCost / DEFAULT_SPIN_COST;
+    const totalWinAmount = Math.round(baseWinAmount * betMultiplier);
+
+    // --- Determine win size and apply appropriate effects ---
+    let winSize = ''; // CSS class for styling the result text
+    let winMessage = ''; // Special message for larger wins
+
+    if (totalWinAmount === 0) {
+        // --- Lose Scenario ---
+        resultDiv.textContent = `No win this time! (${baseWinAmount} × ${betMultiplier}x bet)`;
+        resultDiv.className = ''; // Reset classes
+        resultDiv.classList.add('updated'); // For animation
+        playSound(sounds.lose);
+    } else if (totalWinAmount <= 25 * betMultiplier) { // Threshold for small win
+        // --- Small Win Scenario ---
+        winSize = 'win-small';
+        resultDiv.textContent = `You won: ${totalWinAmount} points (${baseWinAmount} × ${betMultiplier}x bet)`;
+        playSound(sounds.win);
+    } else if (totalWinAmount <= 100 * betMultiplier) { // Threshold for medium win
+        // --- Medium Win Scenario ---
+        winSize = 'win-medium';
+        winMessage = 'Nice Win!';
+        resultDiv.textContent = `You won: ${totalWinAmount} points (${baseWinAmount} × ${betMultiplier}x bet)`;
+        playSound(sounds.win);
+        createParticles(PARTICLE_AMOUNT_SMALL_WIN, ['#f1c40f', '#3498db', '#e74c3c']); // Yellow, Blue, Red particles
+    } else {
+        // --- Big Win Scenario ---
+        winSize = 'win-large';
+        winMessage = 'BIG WIN!';
+        resultDiv.textContent = `You won: ${totalWinAmount} points (${baseWinAmount} × ${betMultiplier}x bet)`;
+        playSound(sounds.bigWin);
+        createParticles(PARTICLE_AMOUNT_BIG_WIN, ['#f1c40f', '#e74c3c', '#2ecc71', '#9b59b6']); // Yellow, Red, Green, Purple particles
+        shakeScreen(SHAKE_INTENSITY_BIG_WIN, SHAKE_DURATION_BIG_WIN_MS);
+    }
+
+    // Apply win styling if there was a win
+    if (winSize) {
+        resultDiv.className = ''; // Reset classes
+        resultDiv.classList.add(winSize);
+        resultDiv.classList.add('updated');
+    }
+
+    // Show win message if applicable
+    if (winMessage) {
+        showWinMessage(winMessage);
+    }
+
+    // Add the winnings to the player's balance
+    updateBalance(totalWinAmount);
+
+
+    // Add to history
+    addToHistory(sections[selectedIndex], totalWinAmount, betMultiplier);
 }
 
 function easeOutCubic(t) {
@@ -586,11 +813,16 @@ function updateThemeColors(multiplier) {
 
 // Initialize the game
 function initGame() {
+    xpToNextLevel = calculateXpForLevel(currentLevel); // Initialize here after function is defined
     // Set up event listeners
     spinBtn.addEventListener("click", function() {
         playSound(sounds.click);
         spinWheel();
     });
+
+    if (powerUpChoicesDiv) {
+        powerUpChoicesDiv.addEventListener('click', handlePowerUpSelection);
+    }
 
     // Set up multiplier slider
     multiplierSlider.addEventListener("input", function() {
@@ -633,6 +865,7 @@ function initGame() {
 
     // Initial render
     drawWheel();
+    updateXpUI(); // Initial XP UI setup
 
     // Start background music after a short delay
     setTimeout(() => {

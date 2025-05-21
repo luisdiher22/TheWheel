@@ -51,6 +51,15 @@
             </ul>
         </div>
 
+        <div class="ui-section" id="xp-system">
+          <h2>Level & XP</h2>
+          <div id="level-display">Level: 1</div>
+          <div id="xp-display">XP: 0 / 100</div>
+          <div id="xp-bar-container">
+            <div id="xp-bar-fill"></div>
+          </div>
+        </div>
+
         <div class="ui-section" id="betting">
             <h2>Risk Multiplier</h2>
             <div class="multiplier-container">
@@ -67,6 +76,26 @@
             </div>
         </div>
     </div>
+</div>
+
+<div id="powerup-modal" class="modal hidden">
+  <div class="modal-content">
+    <h2 id="powerup-modal-title">Level Up! Choose a Power-up:</h2>
+    <div id="powerup-choices">
+      <button class="powerup-choice-btn" data-choice-id="0">
+        <h3 class="powerup-name">Power-up 1 Name</h3>
+        <p class="powerup-description">Description of power-up 1.</p>
+      </button>
+      <button class="powerup-choice-btn" data-choice-id="1">
+        <h3 class="powerup-name">Power-up 2 Name</h3>
+        <p class="powerup-description">Description of power-up 2.</p>
+      </button>
+      <button class="powerup-choice-btn" data-choice-id="2">
+        <h3 class="powerup-name">Power-up 3 Name</h3>
+        <p class="powerup-description">Description of power-up 3.</p>
+      </button>
+    </div>
+  </div>
 </div>
 
 <script src="/static/js/wheel.js"></script>
