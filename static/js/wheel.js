@@ -42,6 +42,7 @@ const THEME_COLOR_UI_BACKGROUND_DARKNESS_BASE = 52;
 const THEME_COLOR_UI_BACKGROUND_DARKNESS_MULTIPLIER_EFFECT = 3;
 const BACKGROUND_MUSIC_DELAY_MS = 1000;
 const WELCOME_MESSAGE_DELAY_MS = 500;
+
 const XP_PER_SPIN = 10;
 
 // Power-up Definitions
@@ -84,6 +85,7 @@ let activePowerUps = {
 };
 
 
+
 const canvas = document.getElementById("wheel");
 const ctx = canvas.getContext("2d");
 const spinBtn = document.getElementById("spinBtn");
@@ -104,7 +106,9 @@ const powerupModal = document.getElementById('powerup-modal');
 const powerUpChoicesDiv = document.getElementById('powerup-choices'); // Assuming this is the container for buttons
 
 // Game settings
+
 let spinCost = DEFAULT_SPIN_COST; // This is the base cost from multiplier
+
 let credits = INITIAL_CREDITS; // Initialize with constant
 let gameOver = false;
 let currentMultiplier = 1;
@@ -473,6 +477,7 @@ function spinWheel() {
     // Check if already spinning
     if (isSpinning) return;
 
+
     let actualSpinCost = spinCost; // Base cost for this spin, potentially modified by power-ups
     let isFreeSpin = false;
 
@@ -491,6 +496,7 @@ function spinWheel() {
 
     // Check if player has enough credits for the actualSpinCost
     if (credits < actualSpinCost && !isFreeSpin) { // Free spins don't care about credit check
+
         resultDiv.textContent = "Not enough credits to spin!";
         resultDiv.classList.add('updated');
         setTimeout(() => resultDiv.classList.remove('updated'), BALANCE_UPDATE_ANIMATION_MS);
@@ -513,6 +519,7 @@ function spinWheel() {
     }
 
 
+
     // Calculate a random amount of rotation.
     // Ensures at least MIN_SPINS full turns plus a random portion of another turn.
     const randomExtraSpins = Math.random() * 360; // Random angle for the final position
@@ -522,6 +529,7 @@ function spinWheel() {
     function animate(currentTime) {
         const elapsedTime = currentTime - animationStartTime;
         const progress = elapsedTime / SPIN_DURATION_MS;
+
 
         if (progress < 1) {
             // Apply easing function to make the spin smooth (starts fast, slows down)
@@ -541,6 +549,7 @@ function spinWheel() {
             const finalAngle = (angle + POINTER_OFFSET_DEGREES) % 360;
             handleSpinResult(finalAngle);
         }
+
     }
 
     requestAnimationFrame(animate);
@@ -634,6 +643,7 @@ function updateXpUI() {
         xpBarFill.style.width = `${xpPercentage}%`;
         // Optional: add text inside the bar
         // xpBarFill.textContent = `${Math.round(xpPercentage)}%`;
+
     }
 }
 
@@ -649,6 +659,7 @@ function checkLevelUp() {
         updateXpUI(); // Update UI to reflect new level and XP requirement before next loop iteration
     }
 }
+
 
 // Display power-up choices in the modal
 function displayPowerUpChoices() {
@@ -692,6 +703,75 @@ function handlePowerUpSelection(event) {
     // setTimeout(() => powerupModal.classList.add('hidden'), 300);
 }
 
+// Helper function to process the outcome of the spin
+function handleSpinResult(finalAngle) {
+    // Determine the winning section index.
+    // The wheel is divided into `numSections`. Each section has an `arcSize`.
+    // `finalAngle / 360` gives the proportion of the circle rotated.
+    // Multiplying by `numSections` gives a raw index.
+    // `numSections - ...` is used because the wheel spins clockwise, but sections might be indexed counter-clockwise or from a different reference.
+    // The result is taken modulo `numSections` and adjusted to ensure it's a non-negative integer.
+    const rawIndex = Math.floor((numSections - (finalAngle / 360) * numSections) % numSections);
+    const selectedIndex = (rawIndex + numSections) % numSections; // Ensures non-negative index
+
+    const baseWinAmount = parseInt(sections[selectedIndex]);
+
+    // Calculate the actual win amount based on the current bet multiplier.
+    // The spinCost is derived from DEFAULT_SPIN_COST * currentMultiplier.
+    const betMultiplier = spinCost / DEFAULT_SPIN_COST;
+    const totalWinAmount = Math.round(baseWinAmount * betMultiplier);
+
+    // --- Determine win size and apply appropriate effects ---
+    let winSize = ''; // CSS class for styling the result text
+    let winMessage = ''; // Special message for larger wins
+
+    if (totalWinAmount === 0) {
+        // --- Lose Scenario ---
+        resultDiv.textContent = `No win this time! (${baseWinAmount} × ${betMultiplier}x bet)`;
+        resultDiv.className = ''; // Reset classes
+        resultDiv.classList.add('updated'); // For animation
+        playSound(sounds.lose);
+    } else if (totalWinAmount <= 25 * betMultiplier) { // Threshold for small win
+        // --- Small Win Scenario ---
+        winSize = 'win-small';
+        resultDiv.textContent = `You won: ${totalWinAmount} points (${baseWinAmount} × ${betMultiplier}x bet)`;
+        playSound(sounds.win);
+    } else if (totalWinAmount <= 100 * betMultiplier) { // Threshold for medium win
+        // --- Medium Win Scenario ---
+        winSize = 'win-medium';
+        winMessage = 'Nice Win!';
+        resultDiv.textContent = `You won: ${totalWinAmount} points (${baseWinAmount} × ${betMultiplier}x bet)`;
+        playSound(sounds.win);
+        createParticles(PARTICLE_AMOUNT_SMALL_WIN, ['#f1c40f', '#3498db', '#e74c3c']); // Yellow, Blue, Red particles
+    } else {
+        // --- Big Win Scenario ---
+        winSize = 'win-large';
+        winMessage = 'BIG WIN!';
+        resultDiv.textContent = `You won: ${totalWinAmount} points (${baseWinAmount} × ${betMultiplier}x bet)`;
+        playSound(sounds.bigWin);
+        createParticles(PARTICLE_AMOUNT_BIG_WIN, ['#f1c40f', '#e74c3c', '#2ecc71', '#9b59b6']); // Yellow, Red, Green, Purple particles
+        shakeScreen(SHAKE_INTENSITY_BIG_WIN, SHAKE_DURATION_BIG_WIN_MS);
+    }
+
+    // Apply win styling if there was a win
+    if (winSize) {
+        resultDiv.className = ''; // Reset classes
+        resultDiv.classList.add(winSize);
+        resultDiv.classList.add('updated');
+    }
+
+    // Show win message if applicable
+    if (winMessage) {
+        showWinMessage(winMessage);
+    }
+
+    // Add the winnings to the player's balance
+    updateBalance(totalWinAmount);
+
+
+    // Add to history
+    addToHistory(sections[selectedIndex], totalWinAmount, betMultiplier);
+}
 
 function easeOutCubic(t) {
     return (--t) * t * t + 1;

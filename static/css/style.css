@@ -742,6 +742,7 @@ canvas {
     100% { transform: scale(1); }
 }
 
+
 /* XP System Styles */
 #xp-system { /* Already styled as .ui-section, additional specific styles can go here if needed */
     /* Example: specific margin if needed */
@@ -883,6 +884,7 @@ canvas {
     margin-bottom: 0;
     line-height: 1.4;
 }
+
 
 
 /* Responsive Design Adjustments */
