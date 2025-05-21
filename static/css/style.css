@@ -741,3 +741,258 @@ canvas {
     50% { transform: scale(1.2); }
     100% { transform: scale(1); }
 }
+
+/* XP System Styles */
+#xp-system { /* Already styled as .ui-section, additional specific styles can go here if needed */
+    /* Example: specific margin if needed */
+    /* margin-bottom: 30px; */
+}
+
+#level-display,
+#xp-display {
+    font-size: 1.1em; /* Slightly larger than default p */
+    color: var(--text-color);
+    margin: 8px 0;
+    font-weight: 600;
+}
+
+#xp-display {
+    font-size: 1em;
+    font-weight: normal;
+    color: var(--silver); /* Subtler color for XP ratio */
+}
+
+#xp-bar-container {
+    width: 100%;
+    height: 22px;
+    background-color: #2c3e50; /* Darker shade */
+    border-radius: 11px;
+    overflow: hidden;
+    margin-top: 10px;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+}
+
+#xp-bar-fill {
+    width: 0%; /* Initial width */
+    height: 100%;
+    background: linear-gradient(to right, var(--primary-color), #45b3e7);
+    border-radius: 11px;
+    transition: width 0.5s ease-in-out;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8em;
+    color: white;
+    text-shadow: 0 0 2px rgba(0,0,0,0.5);
+}
+
+/* Power-up Modal Styles */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.75); /* Slightly darker backdrop */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000; /* Higher z-index for modals */
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease-in-out;
+}
+
+/* When modal is active (e.g. by removing .hidden or adding .visible) */
+.modal:not(.hidden) {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.modal.hidden {
+    display: none !important; /* Ensure it's hidden, added !important */
+    opacity: 0;
+}
+
+
+.modal-content {
+    background-color: var(--ui-background);
+    padding: 30px;
+    border-radius: 10px; /* Slightly larger radius */
+    box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+    width: 90%;
+    max-width: 550px; /* Slightly narrower for very wide screens */
+    text-align: center;
+    border-top: 5px solid var(--primary-color);
+}
+
+#powerup-modal-title {
+    color: var(--primary-color);
+    font-size: 1.8rem;
+    margin-top: 0;
+    margin-bottom: 25px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+#powerup-choices {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.powerup-choice-btn {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 15px 20px;
+    font-size: 1rem;
+    font-weight: 500;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all var(--transition-speed);
+    box-shadow: 0 3px 7px rgba(0, 0, 0, 0.2);
+    text-align: left;
+    border-left: 5px solid transparent; /* For hover/active effect */
+}
+
+.powerup-choice-btn:hover {
+    background-color: #2980b9; /* Darker shade of primary */
+    transform: translateY(-2px);
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.3);
+    border-left-color: var(--gold);
+}
+
+.powerup-choice-btn:active {
+    transform: translateY(0px);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.powerup-choice-btn .powerup-name { /* Target h3 */
+    margin-top: 0;
+    margin-bottom: 8px;
+    color: var(--text-color);
+    font-size: 1.2em;
+    font-weight: 600;
+}
+
+.powerup-choice-btn .powerup-description { /* Target p */
+    font-size: 0.9em;
+    color: var(--text-color);
+    opacity: 0.85;
+    margin-bottom: 0;
+    line-height: 1.4;
+}
+
+
+/* Responsive Design Adjustments */
+@media (max-width: 768px) {
+    h1 {
+        font-size: 1.8rem; /* Reduce font size for smaller screens */
+        padding: 15px 0;
+    }
+
+    h1::after {
+        left: 15%;
+        right: 15%;
+    }
+
+    .container {
+        flex-direction: column; /* Stack columns */
+    }
+
+    .left-column,
+    .right-column {
+        flex-basis: 100%; /* Make columns full width */
+        width: 100%;
+        border-right: none; /* Remove border when stacked */
+        padding: 20px; /* Adjust padding for smaller layout */
+    }
+
+    #wheel-container {
+        width: 90vw; /* Use viewport width for container */
+        height: 90vw; /* Maintain aspect ratio */
+        max-width: 400px; /* Ensure it doesn't get too large on slightly wider small screens */
+        max-height: 400px;
+        margin: 10px auto; /* Adjust margin */
+    }
+
+    #wheel-wrapper {
+        /* Scale the wheel wrapper to fit the new container size */
+        /* This requires the canvas to also be scaled or its drawing adjusted. */
+        /* For simplicity, we'll assume the canvas itself can be made responsive. */
+        /* If canvas is fixed size, transform: scale() is a good alternative. */
+        width: 100%;
+        height: 100%;
+    }
+
+    canvas {
+        /* Make canvas responsive within its wrapper */
+        width: 100% !important; /* Override inline styles if any */
+        height: 100% !important; /* Override inline styles if any */
+        border-width: 3px; /* Slightly thinner border */
+    }
+    
+    #pointer {
+        /* Adjust pointer size and position relative to a potentially smaller wheel */
+        /* This might need fine-tuning depending on final wheel scaling */
+        top: -20px; 
+        width: 25px;
+        height: 25px;
+    }
+
+    #pointer:before {
+        border-left-width: 12.5px;
+        border-right-width: 12.5px;
+        border-top-width: 18px;
+    }
+    
+    #pointer:after {
+        top: -6px;
+        left: 7.5px; /* (25px - 10px) / 2 */
+        width: 8px;
+        height: 8px;
+    }
+
+
+    #result {
+        font-size: 18px; /* Adjust font size for readability */
+        min-width: 200px;
+        padding: 12px;
+    }
+
+    #result.win-large,
+    #result.game-over {
+        font-size: 20px; /* Adjust for emphasis */
+    }
+
+    #spinBtn {
+        padding: 10px 25px;
+        font-size: 16px;
+    }
+
+    .ui-section {
+        padding: 15px;
+    }
+
+    .ui-section h2 {
+        font-size: 1.3rem;
+    }
+
+    #spinHistory {
+        max-height: 150px; /* Reduce height for smaller screens */
+    }
+
+    .multiplier-value {
+        font-size: 28px;
+    }
+
+    .sound-btn {
+        width: 35px;
+        height: 35px;
+    }
+    
+    #creditCost {
+        font-size: 14px;
+    }
+}
