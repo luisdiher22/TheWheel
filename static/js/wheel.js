@@ -1,100 +1,85 @@
 (function() { // IIFE Start
 
 // Constants
-const INITIAL_CREDITS = 100;
-const DEFAULT_SPIN_COST = 10;
-const MIN_SPINS = 2; // Minimum full rotations for the wheel
+const MIN_SPINS = 2; 
 const SPIN_DURATION_MS = 3000;
 const CANVAS_WIDTH = 400;
 const CANVAS_HEIGHT = 400;
 const WHEEL_RADIUS = 200;
-const POINTER_OFFSET_DEGREES = 90; // Offset to align the pointer at the top
+const POINTER_OFFSET_DEGREES = 90; 
 const PARTICLE_AMOUNT_SMALL_WIN = 20;
 const PARTICLE_AMOUNT_BIG_WIN = 50;
 const PARTICLE_DURATION_MS = 3000;
-const SHAKE_INTENSITY_SMALL = 5;
-const SHAKE_DURATION_SMALL_MS = 500;
-const SHAKE_INTENSITY_GAME_OVER = 10;
-const SHAKE_DURATION_GAME_OVER_MS = 1000;
+const SHAKE_INTENSITY_GAME_OVER = 10; 
+const SHAKE_DURATION_GAME_OVER_MS = 1000; 
 const SHAKE_INTENSITY_BIG_WIN = 5;
 const SHAKE_DURATION_BIG_WIN_MS = 800;
+const SHAKE_INTENSITY_PLAYER_HIT = 7; 
+const SHAKE_DURATION_PLAYER_HIT_MS = 400; 
 const WIN_MESSAGE_DURATION_MS = 2000;
-const BALANCE_UPDATE_ANIMATION_MS = 500;
-const ANTI_CLUMP_MAX_ATTEMPTS = 100; // For distributeEvenly function
-const THEME_COLOR_PRIMARY_RED_BASE = 52;
-const THEME_COLOR_PRIMARY_RED_MULTIPLIER_EFFECT = 20;
-const THEME_COLOR_PRIMARY_GREEN_BASE = 152;
-const THEME_COLOR_PRIMARY_GREEN_MULTIPLIER_EFFECT = 10;
-const THEME_COLOR_PRIMARY_BLUE_BASE = 219;
-const THEME_COLOR_PRIMARY_BLUE_MULTIPLIER_EFFECT = 15;
-const THEME_COLOR_ACCENT_RED_BASE = 231;
-const THEME_COLOR_ACCENT_RED_MULTIPLIER_EFFECT = 5;
-const THEME_COLOR_ACCENT_GREEN_BASE = 76;
-const THEME_COLOR_ACCENT_GREEN_MULTIPLIER_EFFECT = 5;
-const THEME_COLOR_ACCENT_BLUE_BASE = 60;
-const THEME_COLOR_ACCENT_BLUE_MULTIPLIER_EFFECT = 5;
-const THEME_COLOR_ACCENT_HOVER_RED_DECREASE = 30;
-const THEME_COLOR_ACCENT_HOVER_GREEN_DECREASE = 20;
-const THEME_COLOR_ACCENT_HOVER_BLUE_DECREASE = 10;
-const THEME_COLOR_BACKGROUND_DARKNESS_BASE = 44;
-const THEME_COLOR_BACKGROUND_DARKNESS_MULTIPLIER_EFFECT = 3;
-const THEME_COLOR_UI_BACKGROUND_DARKNESS_BASE = 52;
-const THEME_COLOR_UI_BACKGROUND_DARKNESS_MULTIPLIER_EFFECT = 3;
+const BALANCE_UPDATE_ANIMATION_MS = 500; 
+const ANTI_CLUMP_MAX_ATTEMPTS = 100; 
 const BACKGROUND_MUSIC_DELAY_MS = 1000;
 const WELCOME_MESSAGE_DELAY_MS = 500;
+const XP_PER_SPIN = 10; 
+const XP_PER_ENEMY_DEFEAT = 50;
+const ENEMY_ATTACK_DELAY_MS = 1500; 
 
-const XP_PER_SPIN = 10;
+const PLAYER_MAX_HP = 100;
+let playerHP = PLAYER_MAX_HP;
+const ENEMY_MAX_HP = 150; 
+let enemyHP = ENEMY_MAX_HP;
+const enemyAttackPattern = ['light', 'medium', 'light', 'heavy']; 
+const enemyAttackValues = { light: 10, medium: 15, heavy: 25 }; 
+let currentEnemyAttackIndex = 0;
 
-// Power-up Definitions
 const powerUpsData = [
     {
-        id: 'bonusCredits',
-        name: 'Credit Stash!',
-        description: 'Instantly gain 50 credits.',
+        id: 'bonusCredits', 
+        name: 'Healing Potion!', 
+        description: 'Heal for 25 HP.',
         applyEffect: function() {
-            updateBalance(50);
-            showWinMessage('Gained 50 Credits!');
-            playSound(sounds.bigWin); // Use a positive sound
+            if (gameOver) return;
+            playerHP = Math.min(PLAYER_MAX_HP, playerHP + 25);
+            updatePlayerHpUI();
+            showWinMessage('Healed 25 HP!');
+            playSound(sounds.playerHeal); 
         }
     },
     {
-        id: 'freeSpin',
-        name: 'Free Spin',
-        description: 'Your next spin is free!',
+        id: 'freeHit', 
+        name: 'Quick Strike!', 
+        description: 'Attack without an immediate enemy counter-attack!',
         applyEffect: function() {
-            activePowerUps.freeSpins += 1;
-            showWinMessage('Next Spin is Free!');
-            playSound(sounds.win); // Use a positive sound
+            if (gameOver) return;
+            activePowerUps.freeHitTurns += 1; 
+            showWinMessage('Quick Strike Ready!'); 
+            playSound(sounds.win); 
         }
     },
     {
-        id: 'costHalved',
-        name: 'Spin Sale!',
-        description: 'Your next 3 spins cost 50% less.',
+        id: 'damageBoost', 
+        name: 'Damage Boost!', 
+        description: 'Your next 3 attacks deal 50% more damage.',
         applyEffect: function() {
-            activePowerUps.costHalvedSpins = 3;
-            showWinMessage('Next 3 Spins 50% Off!');
-            playSound(sounds.win); // Use a positive sound
+            if (gameOver) return;
+            activePowerUps.damageBoostTurns = 3; 
+            showWinMessage('Damage Boost for 3 turns!'); 
+            playSound(sounds.win); 
         }
     }
 ];
 
 let activePowerUps = {
-    freeSpins: 0,
-    costHalvedSpins: 0
+    damageBoostTurns: 0, 
+    freeHitTurns: 0, 
 };
-
-
 
 const canvas = document.getElementById("wheel");
 const ctx = canvas.getContext("2d");
 const spinBtn = document.getElementById("spinBtn");
-const resultDiv = document.getElementById("result");
-const balanceElement = document.getElementById("balance");
-const spinHistoryElement = document.getElementById("spinHistory");
-const multiplierSlider = document.getElementById("multiplierSlider");
-const multiplierValue = document.querySelector(".multiplier-value");
-const creditCostElement = document.getElementById("creditCost");
+const resultDiv = document.getElementById("result"); 
+const creditCostElement = document.getElementById("creditCost"); 
 const wheelWrapper = document.getElementById("wheel-wrapper");
 const winMessageElement = document.getElementById("win-message");
 const particlesContainer = document.getElementById("particles-container");
@@ -103,792 +88,524 @@ const levelDisplay = document.getElementById('level-display');
 const xpDisplay = document.getElementById('xp-display');
 const xpBarFill = document.getElementById('xp-bar-fill');
 const powerupModal = document.getElementById('powerup-modal');
-const powerUpChoicesDiv = document.getElementById('powerup-choices'); // Assuming this is the container for buttons
+const powerUpChoicesDiv = document.getElementById('powerup-choices'); 
+const playerHpText = document.getElementById('player-hp-text');
+const playerHpBarFill = document.getElementById('player-hp-bar-fill');
+const enemyHpText = document.getElementById('enemy-hp-text');
+const enemyHpBarFill = document.getElementById('enemy-hp-bar-fill');
+const enemyImagePlaceholder = document.getElementById('enemy-image-placeholder'); 
+const enemyAttackAnnouncement = document.getElementById('enemy-attack-announcement');
+const gameOverModal = document.getElementById('game-over-modal');
+const restartGameBtn = document.getElementById('restart-game-btn');
 
-// Game settings
-
-let spinCost = DEFAULT_SPIN_COST; // This is the base cost from multiplier
-
-let credits = INITIAL_CREDITS; // Initialize with constant
-let gameOver = false;
-let currentMultiplier = 1;
+let gameOver = false; 
 let isSpinning = false;
 let soundEnabled = true;
 let currentXP = 0;
 let currentLevel = 1;
-// Forward declaration for calculateXpForLevel, will be defined soon
 let xpToNextLevel;
 
-
-// Sound effects
 const sounds = {
     spin: new Audio('/static/sounds/spin.mp3'),
-    win: new Audio('/static/sounds/win.mp3'),
-    bigWin: new Audio('/static/sounds/big-win.mp3'),
-    lose: new Audio('/static/sounds/lose.mp3'),
+    win: new Audio('/static/sounds/win.mp3'), 
+    bigWin: new Audio('/static/sounds/big-win.mp3'), 
+    lose: new Audio('/static/sounds/lose.mp3'), 
     click: new Audio('/static/sounds/click.mp3'),
-    background: new Audio('/static/sounds/background.mp3')
+    background: new Audio('/static/sounds/background.mp3'),
+    playerAttack: new Audio('/static/sounds/click.mp3'), 
+    playerHeal: new Audio('/static/sounds/win.mp3'), 
+    enemyAttack: new Audio('/static/sounds/lose.mp3'),
+    levelUp: new Audio('/static/sounds/win.mp3') 
 };
 
-// Initialize sound properties
-Object.values(sounds).forEach(sound => {
-    sound.volume = 0.5;
-});
-sounds.background.loop = true;
-sounds.background.volume = 0.3;
-
-// Fallback for browsers that don't support audio
+Object.values(sounds).forEach(sound => { sound.volume = 0.5; });
+sounds.background.loop = true; sounds.background.volume = 0.3;
 for (const key in sounds) {
     sounds[key].onerror = function() {
         console.log(`Error loading sound: ${key}`);
-        // Create a dummy play method to avoid errors
         this.play = function() { return Promise.resolve(); };
     };
 }
 
-
 function distributeEvenly(frequencies) {
-    frequencies = { ...frequencies }; // <- clone so original stays intact
+    frequencies = { ...frequencies }; 
     const total = Object.values(frequencies).reduce((a, b) => a + b, 0);
     const result = new Array(total);
     const keys = Object.keys(frequencies);
-
-    // Initialize all positions to ensure no undefined values
-    // This prevents holes in the distribution if logic below has issues.
-    for (let i = 0; i < total; i++) {
-        result[i] = "";
-    }
-
-    // First pass: Distribute values as evenly as possible.
-    // The goal is to place items such that they are spread out,
-    // using a step based on the total items and the frequency of each specific item.
+    for (let i = 0; i < total; i++) result[i] = "";
     let currentIndex = 0;
     for (let key of keys) {
         const count = frequencies[key];
         const step = Math.floor(total / count);
-
         for (let i = 0; i < count; i++) {
             result[currentIndex] = key;
             currentIndex = (currentIndex + step) % total;
         }
     }
-
-    // Second pass: Fill any remaining empty spots.
-    // This handles cases where the first pass might leave gaps due to rounding.
-    // It tries to fill gaps with the most "underrepresented" item at that point.
     for (let i = 0; i < total; i++) {
         if (result[i] === "") {
-            // Find the most underrepresented value
             const counts = {};
             keys.forEach(key => counts[key] = 0);
-
-            result.forEach(val => {
-                if (val !== "") counts[val]++;
-            });
-
-            const minKey = keys.reduce((a, b) =>
-                (counts[a] / frequencies[a] < counts[b] / frequencies[b]) ? a : b
-            );
-
+            result.forEach(val => { if (val !== "") counts[val]++; });
+            const minKey = keys.reduce((a, b) => (counts[a] / frequencies[a] < counts[b] / frequencies[b]) ? a : b);
             result[i] = minKey;
         }
     }
-
-    // Third pass: Shuffle the array to further randomize distribution.
-    // This helps break up any patterns that might have emerged from the deterministic placement.
-    // Uses a Fisher-Yates-like shuffle, but with a condition to avoid swapping identical elements
-    // if they happen to be picked (though less restrictive now).
     for (let i = result.length - 1; i > 0; i--) {
         let j = Math.floor(Math.random() * (i + 1));
-        // Less restrictive swap condition to allow more shuffling
-        if (result[i] !== result[j]) {
-            [result[i], result[j]] = [result[j], result[i]];
-        }
+        if (result[i] !== result[j]) [result[i], result[j]] = [result[j], result[i]];
     }
-
-    // Final pass: Anti-clumping mechanism.
-    // Specifically targets and tries to eliminate adjacent duplicate values.
-    // Iteratively checks for and swaps adjacent duplicates with other non-adjacent, non-duplicate-creating values.
     let hasAdjacent = true;
-    let maxAttempts = ANTI_CLUMP_MAX_ATTEMPTS; // Prevent infinite loops
-
+    let maxAttempts = ANTI_CLUMP_MAX_ATTEMPTS; 
     while (hasAdjacent && maxAttempts > 0) {
-        hasAdjacent = false;
-        maxAttempts--;
-
-        // Check for adjacent duplicates
+        hasAdjacent = false; maxAttempts--;
         for (let i = 0; i < total; i++) {
             const next = (i + 1) % total;
             if (result[i] === result[next]) {
                 hasAdjacent = true;
-
-                // Find a non-adjacent position to swap with
                 for (let j = 0; j < total; j++) {
-                    // Skip adjacent positions (itself, its direct neighbors)
-                    if (j === i || j === next || j === (i + total - 1) % total || j === (next + 1) % total) {
-                        continue;
-                    }
-
-                    // Check if swapping result[next] with result[j] would create new adjacencies for result[next]
-                    // at its new position j.
+                    if (j === i || j === next || j === (i + total - 1) % total || j === (next + 1) % total) continue;
                     const jPrev = (j + total - 1) % total;
                     const jNext = (j + 1) % total;
-
                     if (result[jPrev] !== result[next] && result[jNext] !== result[next]) {
-                        // Safe to swap: result[next] (the duplicate) is swapped with result[j]
                         [result[next], result[j]] = [result[j], result[next]];
-                        break; // Break from inner loop to re-evaluate from the start of the outer loop
+                        break; 
                     }
                 }
             }
         }
     }
-
     return result;
 }
+
  const sections = distributeEvenly({
-    "0": 10, // Number of "0" sections
-    "2": 12, // Number of "2" sections
-    "5": 8,
-    "10": 5,
-    "25": 3,
-    "50": 2,
-    "100": 1,
-    "500": 1
+    "10": 10, "15": 12, "20": 8, "25": 5, "5": 3, "0": 2, "30": 1, "Heal 5": 1 
 });
 
-const colors = sections.map(number => {
-    switch (number) {
-        case "0": return "#505050";    // Dark Gray
-        case "2": return "#6d6d6d";    // Medium Gray
-        case "5": return "#4a6fa5";    // Muted Blue
-        case "10": return "#5b8a72";   // Muted Green
-        case "25": return "#c19a6b";   // Muted Gold
-        case "50": return "#8e7b9c";   // Muted Lavender
-        case "100": return "#a15c5c";  // Muted Red
-        case "500": return "#9c7a54";  // Muted Bronze
-        default: return "#555";        // fallback for unexpected values
-    }
+const colors = sections.map(value => {
+    if (value.includes("Heal")) return "#2ecc71"; 
+    const damage = parseInt(value);
+    if (damage === 0) return "#7f8c8d";    
+    if (damage <= 5) return "#95a5a6";   
+    if (damage <= 10) return "#3498db";   
+    if (damage <= 15) return "#2980b9";   
+    if (damage <= 20) return "#e67e22";   
+    if (damage <= 25) return "#d35400";   
+    if (damage >= 30) return "#c0392b";   
+    return "#555";        
 });
-
 
 const numSections = sections.length;
 const arcSize = (2 * Math.PI) / numSections;
-
 let angle = 0;
-
-
-
-
 
 function drawWheel() {
     for (let i = 0; i < numSections; i++) {
         const startAngle = i * arcSize;
         const endAngle = startAngle + arcSize;
-
-        ctx.beginPath();
-        ctx.moveTo(WHEEL_RADIUS, WHEEL_RADIUS); // Center X, Center Y
-        ctx.arc(WHEEL_RADIUS, WHEEL_RADIUS, WHEEL_RADIUS, startAngle, endAngle); // Center X, Center Y, Radius
-        ctx.fillStyle = colors[i];
-        ctx.fill();
-
-        ctx.save();
-        ctx.translate(WHEEL_RADIUS, WHEEL_RADIUS); // Center X, Center Y
-        ctx.rotate(startAngle + arcSize / 2);
-        ctx.textAlign = "right";
-        ctx.fillStyle = "#fff";
-        ctx.font = "bold 16px 'Segoe UI', sans-serif";
-        ctx.fillText(sections[i], WHEEL_RADIUS - 10, 10); // Position text near edge of segment
-        ctx.restore();
-
+        ctx.beginPath(); ctx.moveTo(WHEEL_RADIUS, WHEEL_RADIUS);
+        ctx.arc(WHEEL_RADIUS, WHEEL_RADIUS, WHEEL_RADIUS, startAngle, endAngle);
+        ctx.fillStyle = colors[i]; ctx.fill();
+        ctx.save(); ctx.translate(WHEEL_RADIUS, WHEEL_RADIUS);
+        ctx.rotate(startAngle + arcSize / 2); ctx.textAlign = "right";
+        ctx.fillStyle = "#fff"; ctx.font = "bold 16px 'Segoe UI', sans-serif";
+        ctx.fillText(sections[i], WHEEL_RADIUS - 10, 10); ctx.restore();
     }
 }
 
 function drawRotatedWheel(rotation) {
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    ctx.save();
-    ctx.translate(WHEEL_RADIUS, WHEEL_RADIUS); // Center X, Center Y
-    ctx.rotate(rotation * Math.PI / 180);
-    ctx.translate(-WHEEL_RADIUS, -WHEEL_RADIUS); // Center X, Center Y
-    drawWheel();
-    ctx.restore();
-
-
-
+    ctx.save(); ctx.translate(WHEEL_RADIUS, WHEEL_RADIUS);
+    ctx.rotate(rotation * Math.PI / 180); ctx.translate(-WHEEL_RADIUS, -WHEEL_RADIUS);
+    drawWheel(); ctx.restore();
 }
 
-
-
-// Particle system for celebrations
-function createParticles(amount, colors, duration = PARTICLE_DURATION_MS) {
+function createParticles(amount, particleColors, duration = PARTICLE_DURATION_MS) {
     if (!particlesContainer) return;
-
     particlesContainer.innerHTML = '';
-
     for (let i = 0; i < amount; i++) {
-        const particle = document.createElement('div');
-        particle.className = 'particle';
-
-        // Random position, size, and color
-        const size = Math.random() * 10 + 5; // Particle size between 5px and 15px
-        const color = colors[Math.floor(Math.random() * colors.length)];
-
-        particle.style.width = `${size}px`;
-        particle.style.height = `${size}px`;
-        particle.style.backgroundColor = color;
-        particle.style.boxShadow = `0 0 ${size/2}px ${color}`;
-
-        // Position near the wheel
+        const particle = document.createElement('div'); particle.className = 'particle';
+        const size = Math.random() * 10 + 5;
+        const color = particleColors[Math.floor(Math.random() * particleColors.length)];
+        particle.style.width = `${size}px`; particle.style.height = `${size}px`;
+        particle.style.backgroundColor = color; particle.style.boxShadow = `0 0 ${size/2}px ${color}`;
         const wheelRect = wheelWrapper.getBoundingClientRect();
-        const centerX = wheelRect.left + wheelRect.width / 2;
-        const centerY = wheelRect.top + wheelRect.height / 2;
-
-        particle.style.position = 'absolute';
-        particle.style.left = `${centerX}px`;
-        particle.style.top = `${centerY}px`;
-
-        // Animation properties
-        const angle = Math.random() * Math.PI * 2;
-        const velocity = Math.random() * 5 + 2;
-        const vx = Math.cos(angle) * velocity;
-        const vy = Math.sin(angle) * velocity;
+        const centerX = wheelRect.left + wheelRect.width / 2; const centerY = wheelRect.top + wheelRect.height / 2;
+        particle.style.position = 'absolute'; particle.style.left = `${centerX}px`; particle.style.top = `${centerY}px`;
+        const pAngle = Math.random() * Math.PI * 2; const velocity = Math.random() * 5 + 2;
+        const vx = Math.cos(pAngle) * velocity; const vy = Math.sin(pAngle) * velocity;
         const rotateSpeed = (Math.random() - 0.5) * 10;
-
-        // Animate the particle
         particle.animate([
-            { 
-                transform: 'translate(0, 0) rotate(0deg)', 
-                opacity: 1 
-            },
-            { 
-                transform: `translate(${vx * 100}px, ${vy * 100}px) rotate(${rotateSpeed * 360}deg)`, 
-                opacity: 0 
-            }
-        ], {
-            duration: Math.random() * 1000 + duration,
-            easing: 'cubic-bezier(0.1, 0.8, 0.2, 1)'
-        });
-
+            { transform: 'translate(0, 0) rotate(0deg)', opacity: 1 },
+            { transform: `translate(${vx * 100}px, ${vy * 100}px) rotate(${rotateSpeed * 360}deg)`, opacity: 0 }
+        ], { duration: Math.random() * 1000 + duration, easing: 'cubic-bezier(0.1, 0.8, 0.2, 1)' });
         particlesContainer.appendChild(particle);
     }
-
-    // Clean up particles after animation
-    setTimeout(() => {
-        particlesContainer.innerHTML = '';
-    }, duration + 1000);
+    setTimeout(() => { particlesContainer.innerHTML = ''; }, duration + 1000);
 }
 
-// Screen shake effect
 function shakeScreen(intensity = 5, duration = 500) {
-    const body = document.body;
-    const startTime = Date.now();
-
+    const body = document.body; const startTime = Date.now();
     function shake() {
         const elapsed = Date.now() - startTime;
         if (elapsed < duration) {
-            const x = (Math.random() - 0.5) * intensity;
-            const y = (Math.random() - 0.5) * intensity;
-            body.style.transform = `translate(${x}px, ${y}px)`;
-            requestAnimationFrame(shake);
-        } else {
-            body.style.transform = ''; // Reset transform
-        }
+            const x = (Math.random() - 0.5) * intensity; const y = (Math.random() - 0.5) * intensity;
+            body.style.transform = `translate(${x}px, ${y}px)`; requestAnimationFrame(shake);
+        } else { body.style.transform = ''; }
     }
-
     shake();
 }
 
-// Show win message
 function showWinMessage(message, duration = WIN_MESSAGE_DURATION_MS) {
+    if (!winMessageElement) return;
     winMessageElement.textContent = message;
-    winMessageElement.classList.remove('hidden');
-    winMessageElement.classList.add('show');
-
+    winMessageElement.classList.remove('hidden'); winMessageElement.classList.add('show');
     setTimeout(() => {
         winMessageElement.classList.remove('show');
-        setTimeout(() => {
-            winMessageElement.classList.add('hidden');
-        }, BALANCE_UPDATE_ANIMATION_MS); // Use constant for consistency
+        setTimeout(() => { winMessageElement.classList.add('hidden'); }, BALANCE_UPDATE_ANIMATION_MS); 
     }, duration);
 }
 
-// Play sound with error handling
 function playSound(sound) {
-    if (!soundEnabled) return Promise.resolve();
+    if (!soundEnabled || !sound) return Promise.resolve();
+    try { sound.currentTime = 0; return sound.play(); } 
+    catch (error) { console.error("Error playing sound:", error); return Promise.resolve(); }
+}
 
-    try {
-        // Reset the sound to the beginning
-        sound.currentTime = 0;
-        return sound.play();
-    } catch (error) {
-        console.error("Error playing sound:", error);
-        return Promise.resolve();
+function updatePlayerHpUI() {
+    if (playerHpText) playerHpText.textContent = `HP: ${playerHP} / ${PLAYER_MAX_HP}`;
+    if (playerHpBarFill) {
+        const playerHpPercentage = (playerHP / PLAYER_MAX_HP) * 100;
+        playerHpBarFill.style.width = `${Math.max(0, playerHpPercentage)}%`;
     }
 }
 
-function updateBalance(amount) {
-    const oldCredits = credits;
-    credits += amount;
+function updateEnemyHpUI() {
+    if (enemyHpText) enemyHpText.textContent = `HP: ${enemyHP} / ${ENEMY_MAX_HP}`;
+    if (enemyHpBarFill) {
+        const enemyHpPercentage = (enemyHP / ENEMY_MAX_HP) * 100;
+        enemyHpBarFill.style.width = `${Math.max(0, enemyHpPercentage)}%`;
+    }
+}
 
-    // Animate the balance change
-    balanceElement.classList.add('updated');
-    setTimeout(() => balanceElement.classList.remove('updated'), BALANCE_UPDATE_ANIMATION_MS);
+function showGameOverModal() {
+    if (!gameOverModal) return;
+    const messageElement = gameOverModal.querySelector('#game-over-message');
+    const titleElement = gameOverModal.querySelector('#game-over-title');
+    if (playerHP <= 0) {
+        titleElement.textContent = "Game Over!";
+        messageElement.textContent = "You have been defeated!";
+    } else if (enemyHP <= 0) {
+        titleElement.textContent = "Victory!";
+        messageElement.textContent = "Enemy vanquished! A new foe appears..."; 
+    }
+    gameOverModal.classList.remove('hidden');
+}
 
-    // Update the display
-    balanceElement.textContent = credits;
+function hideGameOverModal() {
+    if (gameOverModal) gameOverModal.classList.add('hidden');
+}
 
-    // Check if game is over
-    if (credits <= 0) {
-        gameOver = true;
+function handlePlayerDefeat() {
+    gameOver = true;
+    playSound(sounds.lose); 
+    shakeScreen(SHAKE_INTENSITY_GAME_OVER, SHAKE_DURATION_GAME_OVER_MS);
+    showGameOverModal(); 
+    spinBtn.disabled = true;
+}
+
+function handleEnemyDefeated() {
+    playSound(sounds.bigWin);
+    createParticles(PARTICLE_AMOUNT_BIG_WIN, ['#f1c40f', '#2ecc71']); 
+    showWinMessage("Enemy Defeated! Bonus XP!", 2500);
+    
+    currentXP += XP_PER_ENEMY_DEFEAT; 
+    updateXpUI(); 
+    
+    enemyHP = ENEMY_MAX_HP; 
+    updateEnemyHpUI();
+    currentEnemyAttackIndex = 0;
+    if(enemyAttackAnnouncement) enemyAttackAnnouncement.textContent = "A new challenger approaches!";
+    
+    checkLevelUp(); 
+
+    if (powerupModal.classList.contains('hidden') && playerHP > 0 && !gameOver) { 
+        spinBtn.disabled = false; 
+    } else if (gameOver) { 
         spinBtn.disabled = true;
-        resultDiv.textContent = "Game Over! You're out of credits.";
-        resultDiv.classList.add("game-over");
-        playSound(sounds.lose);
-        shakeScreen(SHAKE_INTENSITY_GAME_OVER, SHAKE_DURATION_GAME_OVER_MS);
     }
 }
 
-function addToHistory(baseResult, totalWinAmount, betMultiplier) {
-    // Create a new history entry
-    const historyEntry = document.createElement("p");
-    historyEntry.textContent = `Spin result: ${totalWinAmount} points (${baseResult} × ${betMultiplier}x bet)`;
-
-    // Add class based on win/lose
-    if (totalWinAmount > 0) {
-        historyEntry.classList.add('win-entry');
-    } else {
-        historyEntry.classList.add('lose-entry');
-    }
-
-    // If this is the first real entry, clear the placeholder
-    if (spinHistoryElement.querySelector("p").textContent === "No spins yet. Start playing!") {
-        spinHistoryElement.innerHTML = "";
-    }
-
-    // Add the new entry at the top
-    spinHistoryElement.insertBefore(historyEntry, spinHistoryElement.firstChild);
-}
-
-function spinWheel() {
-    // Check if already spinning
-    if (isSpinning) return;
-
-    // Check if player has enough credits
-    // Check if already spinning
-    if (isSpinning) return;
-
-
-    let actualSpinCost = spinCost; // Base cost for this spin, potentially modified by power-ups
-    let isFreeSpin = false;
-
-    if (activePowerUps.freeSpins > 0) {
-        activePowerUps.freeSpins--;
-        isFreeSpin = true;
-        actualSpinCost = 0;
-        showWinMessage("Free Spin Used!", 1500); // Shorter message
-        // Consider updating a UI element that shows activePowerUps.freeSpins count
-    } else if (activePowerUps.costHalvedSpins > 0) {
-        activePowerUps.costHalvedSpins--;
-        actualSpinCost = spinCost / 2;
-        showWinMessage("Half Price Spin Used!", 1500); // Shorter message
-         // Consider updating a UI element that shows activePowerUps.costHalvedSpins count
-    }
-
-    // Check if player has enough credits for the actualSpinCost
-    if (credits < actualSpinCost && !isFreeSpin) { // Free spins don't care about credit check
-
-        resultDiv.textContent = "Not enough credits to spin!";
-        resultDiv.classList.add('updated');
-        setTimeout(() => resultDiv.classList.remove('updated'), BALANCE_UPDATE_ANIMATION_MS);
-        playSound(sounds.lose);
+function enemyAttack() { 
+    if (gameOver) {
+        spinBtn.disabled = true; 
         return;
     }
 
-    // Set spinning state
+    const attackType = enemyAttackPattern[currentEnemyAttackIndex];
+    const damageDealtByEnemy = enemyAttackValues[attackType];
+    
+    if(enemyAttackAnnouncement) enemyAttackAnnouncement.textContent = `Enemy prepares ${attackType} attack...`;
+    
+    setTimeout(() => {
+        if (gameOver) return; 
+
+        playerHP = Math.max(0, playerHP - damageDealtByEnemy);
+        updatePlayerHpUI();
+        playSound(sounds.enemyAttack);
+        shakeScreen(SHAKE_INTENSITY_PLAYER_HIT, SHAKE_DURATION_PLAYER_HIT_MS);
+        
+        if(enemyAttackAnnouncement) enemyAttackAnnouncement.textContent = `Enemy used ${attackType} and dealt ${damageDealtByEnemy} damage!`;
+        
+        currentEnemyAttackIndex = (currentEnemyAttackIndex + 1) % enemyAttackPattern.length;
+
+        if (playerHP <= 0) {
+            handlePlayerDefeat();
+        } else {
+            if (!powerupModal.classList.contains('hidden')) {
+                 spinBtn.disabled = true; 
+            } else {
+                 spinBtn.disabled = false; 
+            }
+        }
+    }, ENEMY_ATTACK_DELAY_MS); 
+}
+
+function restartGame() {
+    gameOver = false;
+    playerHP = PLAYER_MAX_HP;
+    enemyHP = ENEMY_MAX_HP; 
+    currentLevel = 1; 
+    currentXP = 0;
+    xpToNextLevel = calculateXpForLevel(currentLevel);
+    currentEnemyAttackIndex = 0;
+    activePowerUps = { freeHitTurns: 0, damageBoostTurns: 0 };
+
+    updatePlayerHpUI(); 
+    updateEnemyHpUI(); 
+    updateXpUI();
+    hideGameOverModal();
+    if(resultDiv) resultDiv.textContent = 'Spin the wheel to start combat!'; 
+    if(enemyAttackAnnouncement) enemyAttackAnnouncement.textContent = '';
+    if(winMessageElement) winMessageElement.classList.add('hidden'); 
+    
+    spinBtn.disabled = false;
+    playSound(sounds.click); 
+}
+
+function spinWheel() {
+    if (isSpinning || gameOver) return;
     isSpinning = true;
-    wheelWrapper.classList.add('spinning');
-    spinBtn.classList.add('spinning');
+    wheelWrapper.classList.add('spinning'); spinBtn.classList.add('spinning');
+    spinBtn.disabled = true; 
+    if(enemyAttackAnnouncement) enemyAttackAnnouncement.textContent = ''; 
+    resultDiv.textContent = ''; 
 
-    // Play spin sound
-    playSound(sounds.spin);
-    playSound(sounds.click);
-
-    // Deduct the actual spin cost (could be 0 for free spin)
-    if (!isFreeSpin) { // Only deduct if not a free spin
-        updateBalance(-actualSpinCost);
-    }
-
-
-
-    // Calculate a random amount of rotation.
-    // Ensures at least MIN_SPINS full turns plus a random portion of another turn.
-    const randomExtraSpins = Math.random() * 360; // Random angle for the final position
-    const totalRotation = (MIN_SPINS * 360) + randomExtraSpins; // Total degrees to spin
+    playSound(sounds.spin); playSound(sounds.click);
+    const randomExtraSpins = Math.random() * 360; 
+    const totalRotation = (MIN_SPINS * 360) + randomExtraSpins; 
     const animationStartTime = performance.now();
-
     function animate(currentTime) {
         const elapsedTime = currentTime - animationStartTime;
         const progress = elapsedTime / SPIN_DURATION_MS;
-
-
         if (progress < 1) {
-            // Apply easing function to make the spin smooth (starts fast, slows down)
             const currentSpinAmount = easeOutCubic(progress) * totalRotation;
-            angle = currentSpinAmount; // Update the global angle
-            drawRotatedWheel(angle); // Redraw the wheel at the new angle
-            requestAnimationFrame(animate); // Continue animation
+            angle = currentSpinAmount; drawRotatedWheel(angle); requestAnimationFrame(animate); 
         } else {
-            // --- Spin Finished ---
             isSpinning = false;
-            wheelWrapper.classList.remove('spinning');
-            spinBtn.classList.remove('spinning');
-
-            // Calculate the final resting position of the wheel.
-            // The angle is taken modulo 360 to get the final orientation.
-            // POINTER_OFFSET_DEGREES is added to align the "winning" segment with a visual pointer (e.g., at the top).
+            wheelWrapper.classList.remove('spinning'); spinBtn.classList.remove('spinning');
             const finalAngle = (angle + POINTER_OFFSET_DEGREES) % 360;
-            handleSpinResult(finalAngle);
+            handleSpinResult(finalAngle); 
         }
-
     }
-
     requestAnimationFrame(animate);
 }
 
-// Helper function to process the outcome of the spin
 function handleSpinResult(finalAngle) {
-    // Determine the winning section index.
-    // The wheel is divided into `numSections`. Each section has an `arcSize`.
-    // `finalAngle / 360` gives the proportion of the circle rotated.
-    // Multiplying by `numSections` gives a raw index.
-    // `numSections - ...` is used because the wheel spins clockwise, but sections might be indexed counter-clockwise or from a different reference.
-    // The result is taken modulo `numSections` and adjusted to ensure it's a non-negative integer.
+    if (gameOver && !isSpinning) { 
+        spinBtn.disabled = true; 
+        return;
+    }
+
     const rawIndex = Math.floor((numSections - (finalAngle / 360) * numSections) % numSections);
-    const selectedIndex = (rawIndex + numSections) % numSections; // Ensures non-negative index
+    const selectedIndex = (rawIndex + numSections) % numSections; 
+    const outcomeString = sections[selectedIndex]; 
 
-    const baseWinAmount = parseInt(sections[selectedIndex]);
+    resultDiv.className = 'updated'; 
+    let damageDealt = 0;
+    let message = "";
+    let playerActionSound = sounds.playerAttack; 
 
-    // Calculate the actual win amount based on the current bet multiplier.
-    // The spinCost is derived from DEFAULT_SPIN_COST * currentMultiplier.
-    const betMultiplier = spinCost / DEFAULT_SPIN_COST;
-    const totalWinAmount = Math.round(baseWinAmount * betMultiplier);
-
-    // --- Determine win size and apply appropriate effects ---
-    let winSize = ''; // CSS class for styling the result text
-    let winMessage = ''; // Special message for larger wins
-
-    if (totalWinAmount === 0) {
-        // --- Lose Scenario ---
-        resultDiv.textContent = `No win this time! (${baseWinAmount} × ${betMultiplier}x bet)`;
-        resultDiv.className = ''; // Reset classes
-        resultDiv.classList.add('updated'); // For animation
-        playSound(sounds.lose);
-    } else if (totalWinAmount <= 25 * betMultiplier) { // Threshold for small win
-        // --- Small Win Scenario ---
-        winSize = 'win-small';
-        resultDiv.textContent = `You won: ${totalWinAmount} points (${baseWinAmount} × ${betMultiplier}x bet)`;
-        playSound(sounds.win);
-    } else if (totalWinAmount <= 100 * betMultiplier) { // Threshold for medium win
-        // --- Medium Win Scenario ---
-        winSize = 'win-medium';
-        winMessage = 'Nice Win!';
-        resultDiv.textContent = `You won: ${totalWinAmount} points (${baseWinAmount} × ${betMultiplier}x bet)`;
-        playSound(sounds.win);
-        createParticles(PARTICLE_AMOUNT_SMALL_WIN, ['#f1c40f', '#3498db', '#e74c3c']); // Yellow, Blue, Red particles
+    if (outcomeString.includes("Heal")) {
+        const healAmount = parseInt(outcomeString.split(" ")[1]);
+        playerHP = Math.min(PLAYER_MAX_HP, playerHP + healAmount);
+        updatePlayerHpUI();
+        message = `You used Heal and recovered ${healAmount} HP!`;
+        playerActionSound = sounds.playerHeal; 
+        createParticles(PARTICLE_AMOUNT_SMALL_WIN, ['#2ecc71', '#27ae60']); 
     } else {
-        // --- Big Win Scenario ---
-        winSize = 'win-large';
-        winMessage = 'BIG WIN!';
-        resultDiv.textContent = `You won: ${totalWinAmount} points (${baseWinAmount} × ${betMultiplier}x bet)`;
-        playSound(sounds.bigWin);
-        createParticles(PARTICLE_AMOUNT_BIG_WIN, ['#f1c40f', '#e74c3c', '#2ecc71', '#9b59b6']); // Yellow, Red, Green, Purple particles
-        shakeScreen(SHAKE_INTENSITY_BIG_WIN, SHAKE_DURATION_BIG_WIN_MS);
+        damageDealt = parseInt(outcomeString);
+        if (isNaN(damageDealt)) damageDealt = 0; 
+
+        if (damageDealt === 0) {
+            message = "You missed!";
+            playerActionSound = sounds.lose; 
+        } else {
+            let actualDamage = damageDealt;
+            if (activePowerUps.damageBoostTurns > 0) {
+                actualDamage = Math.round(actualDamage * 1.5);
+                activePowerUps.damageBoostTurns--;
+                showWinMessage(`Damage Boost! ${actualDamage} DMG! (${activePowerUps.damageBoostTurns} left)`, 1500);
+            }
+            
+            enemyHP = Math.max(0, enemyHP - actualDamage);
+            updateEnemyHpUI();
+            message = `You dealt ${actualDamage} damage!`;
+            
+            if (actualDamage >= 30) { 
+                 createParticles(PARTICLE_AMOUNT_BIG_WIN, ['#c0392b', '#e74c3c', '#f1c40f']);
+                 shakeScreen(SHAKE_INTENSITY_BIG_WIN, SHAKE_DURATION_BIG_WIN_MS);
+                 playerActionSound = sounds.bigWin;
+            } else if (actualDamage >= 20) { 
+                 createParticles(PARTICLE_AMOUNT_BIG_WIN, ['#e74c3c', '#d35400']); 
+                 shakeScreen(SHAKE_INTENSITY_SMALL, SHAKE_DURATION_SMALL_MS);
+            } else if (actualDamage > 0) { 
+                 createParticles(PARTICLE_AMOUNT_SMALL_WIN, ['#f1c40f', '#e67e22']);
+            }
+        }
     }
+    resultDiv.textContent = message;
+    playSound(playerActionSound);
 
-    // Apply win styling if there was a win
-    if (winSize) {
-        resultDiv.className = ''; // Reset classes
-        resultDiv.classList.add(winSize);
-        resultDiv.classList.add('updated');
-    }
-
-    // Show win message if applicable
-    if (winMessage) {
-        showWinMessage(winMessage);
-    }
-
-    // Add the winnings to the player's balance
-    updateBalance(totalWinAmount);
-
-    // Add to history
-    addToHistory(sections[selectedIndex], totalWinAmount, betMultiplier);
-
-    // Award XP
     currentXP += XP_PER_SPIN;
-    checkLevelUp();
-    updateXpUI();
+    updateXpUI(); 
+    
+    if (enemyHP <= 0) {
+        handleEnemyDefeated(); 
+    } else {
+        checkLevelUp(); 
+        if (powerupModal.classList.contains('hidden')) { 
+            if (activePowerUps.freeHitTurns > 0) {
+                activePowerUps.freeHitTurns--;
+                showWinMessage("Quick Strike! Enemy doesn't counter.", WIN_MESSAGE_DURATION_MS);
+                if (!gameOver) spinBtn.disabled = false; 
+            } else {
+                enemyAttack(); 
+            }
+        }
+    }
 }
 
-// Calculate XP needed for a given level
-function calculateXpForLevel(level) {
-    return level * 100;
-}
+function calculateXpForLevel(level) { return level * 100; }
 
-// Update XP and Level UI elements
 function updateXpUI() {
     if (levelDisplay) levelDisplay.textContent = `Level: ${currentLevel}`;
     if (xpDisplay) xpDisplay.textContent = `XP: ${currentXP} / ${xpToNextLevel}`;
     if (xpBarFill) {
-        const xpPercentage = (currentXP / xpToNextLevel) * 100;
-        xpBarFill.style.width = `${xpPercentage}%`;
-        // Optional: add text inside the bar
-        // xpBarFill.textContent = `${Math.round(xpPercentage)}%`;
-
+        const xpPercentage = xpToNextLevel > 0 ? (currentXP / xpToNextLevel) * 100 : 0;
+        xpBarFill.style.width = `${Math.max(0, Math.min(100,xpPercentage))}%`;
     }
 }
 
-// Check for level up
 function checkLevelUp() {
-    while (currentXP >= xpToNextLevel) {
+    if (currentXP >= xpToNextLevel && !gameOver && enemyHP > 0 ) { 
         currentXP -= xpToNextLevel;
         currentLevel++;
         xpToNextLevel = calculateXpForLevel(currentLevel);
-        displayPowerUpChoices(); // Show modal instead of console.log
-        // Potentially play a level-up sound or show a quick animation here if desired later.
-        // If we level up, we immediately update UI and check again in case of multiple level ups
-        updateXpUI(); // Update UI to reflect new level and XP requirement before next loop iteration
+        playSound(sounds.levelUp); 
+        updateXpUI(); 
+        displayPowerUpChoices(); 
+    } else if (currentXP >= xpToNextLevel && !gameOver && enemyHP <= 0) {
+        currentXP -= xpToNextLevel;
+        currentLevel++;
+        xpToNextLevel = calculateXpForLevel(currentLevel);
+        playSound(sounds.levelUp); 
+        updateXpUI();
     }
 }
 
-
-// Display power-up choices in the modal
 function displayPowerUpChoices() {
     if (!powerupModal || !powerUpChoicesDiv) return;
-
-    // For now, select the first 3 power-ups.
-    // Future: Implement random selection of 3 unique power-ups if powerUpsData.length > 3
-    const selectedChoices = powerUpsData.slice(0, 3);
-
+    const selectedChoices = powerUpsData.slice(0, 3); 
     const choiceButtons = powerUpChoicesDiv.querySelectorAll('.powerup-choice-btn');
-
     choiceButtons.forEach((button, index) => {
         if (selectedChoices[index]) {
             const powerUp = selectedChoices[index];
             button.querySelector('.powerup-name').textContent = powerUp.name;
             button.querySelector('.powerup-description').textContent = powerUp.description;
-            button.dataset.powerupId = powerUp.id;
-            button.style.display = ''; // Make sure button is visible
-        } else {
-            button.style.display = 'none'; // Hide button if not enough power-ups
-        }
+            button.dataset.powerupId = powerUp.id; button.style.display = ''; 
+        } else { button.style.display = 'none'; }
     });
-
     powerupModal.classList.remove('hidden');
+    spinBtn.disabled = true; 
 }
 
-// Handle click on a power-up choice button
 function handlePowerUpSelection(event) {
     const button = event.target.closest('.powerup-choice-btn');
     if (!button) return;
-
     const powerupId = button.dataset.powerupId;
     const selectedPowerUp = powerUpsData.find(p => p.id === powerupId);
-
     if (selectedPowerUp && selectedPowerUp.applyEffect) {
         selectedPowerUp.applyEffect();
     }
-
     powerupModal.classList.add('hidden');
-    // Optional: Add a small delay or animation before hiding
-    // setTimeout(() => powerupModal.classList.add('hidden'), 300);
-}
 
-// Helper function to process the outcome of the spin
-function handleSpinResult(finalAngle) {
-    // Determine the winning section index.
-    // The wheel is divided into `numSections`. Each section has an `arcSize`.
-    // `finalAngle / 360` gives the proportion of the circle rotated.
-    // Multiplying by `numSections` gives a raw index.
-    // `numSections - ...` is used because the wheel spins clockwise, but sections might be indexed counter-clockwise or from a different reference.
-    // The result is taken modulo `numSections` and adjusted to ensure it's a non-negative integer.
-    const rawIndex = Math.floor((numSections - (finalAngle / 360) * numSections) % numSections);
-    const selectedIndex = (rawIndex + numSections) % numSections; // Ensures non-negative index
-
-    const baseWinAmount = parseInt(sections[selectedIndex]);
-
-    // Calculate the actual win amount based on the current bet multiplier.
-    // The spinCost is derived from DEFAULT_SPIN_COST * currentMultiplier.
-    const betMultiplier = spinCost / DEFAULT_SPIN_COST;
-    const totalWinAmount = Math.round(baseWinAmount * betMultiplier);
-
-    // --- Determine win size and apply appropriate effects ---
-    let winSize = ''; // CSS class for styling the result text
-    let winMessage = ''; // Special message for larger wins
-
-    if (totalWinAmount === 0) {
-        // --- Lose Scenario ---
-        resultDiv.textContent = `No win this time! (${baseWinAmount} × ${betMultiplier}x bet)`;
-        resultDiv.className = ''; // Reset classes
-        resultDiv.classList.add('updated'); // For animation
-        playSound(sounds.lose);
-    } else if (totalWinAmount <= 25 * betMultiplier) { // Threshold for small win
-        // --- Small Win Scenario ---
-        winSize = 'win-small';
-        resultDiv.textContent = `You won: ${totalWinAmount} points (${baseWinAmount} × ${betMultiplier}x bet)`;
-        playSound(sounds.win);
-    } else if (totalWinAmount <= 100 * betMultiplier) { // Threshold for medium win
-        // --- Medium Win Scenario ---
-        winSize = 'win-medium';
-        winMessage = 'Nice Win!';
-        resultDiv.textContent = `You won: ${totalWinAmount} points (${baseWinAmount} × ${betMultiplier}x bet)`;
-        playSound(sounds.win);
-        createParticles(PARTICLE_AMOUNT_SMALL_WIN, ['#f1c40f', '#3498db', '#e74c3c']); // Yellow, Blue, Red particles
-    } else {
-        // --- Big Win Scenario ---
-        winSize = 'win-large';
-        winMessage = 'BIG WIN!';
-        resultDiv.textContent = `You won: ${totalWinAmount} points (${baseWinAmount} × ${betMultiplier}x bet)`;
-        playSound(sounds.bigWin);
-        createParticles(PARTICLE_AMOUNT_BIG_WIN, ['#f1c40f', '#e74c3c', '#2ecc71', '#9b59b6']); // Yellow, Red, Green, Purple particles
-        shakeScreen(SHAKE_INTENSITY_BIG_WIN, SHAKE_DURATION_BIG_WIN_MS);
+    if (gameOver) { 
+        spinBtn.disabled = true;
+        return;
     }
-
-    // Apply win styling if there was a win
-    if (winSize) {
-        resultDiv.className = ''; // Reset classes
-        resultDiv.classList.add(winSize);
-        resultDiv.classList.add('updated');
-    }
-
-    // Show win message if applicable
-    if (winMessage) {
-        showWinMessage(winMessage);
-    }
-
-    // Add the winnings to the player's balance
-    updateBalance(totalWinAmount);
-
-
-    // Add to history
-    addToHistory(sections[selectedIndex], totalWinAmount, betMultiplier);
-}
-
-function easeOutCubic(t) {
-    return (--t) * t * t + 1;
-}
-
-// Function to update theme colors based on multiplier
-function updateThemeColors(multiplier) {
-    // Calculate color values based on multiplier
-    // As multiplier increases, colors shift more towards red
-    const redIntensity = Math.min(255, THEME_COLOR_PRIMARY_RED_BASE + (multiplier - 1) * THEME_COLOR_PRIMARY_RED_MULTIPLIER_EFFECT);
-    const greenIntensity = Math.max(100, THEME_COLOR_PRIMARY_GREEN_BASE - (multiplier - 1) * THEME_COLOR_PRIMARY_GREEN_MULTIPLIER_EFFECT);
-    const blueIntensity = Math.max(100, THEME_COLOR_PRIMARY_BLUE_BASE - (multiplier - 1) * THEME_COLOR_PRIMARY_BLUE_MULTIPLIER_EFFECT);
-
-    // Create new primary color with increased red component
-    const newPrimaryColor = `rgb(${redIntensity}, ${greenIntensity}, ${blueIntensity})`;
-
-    // Create new accent color with increased red component
-    const accentRedIntensity = Math.min(255, THEME_COLOR_ACCENT_RED_BASE + (multiplier - 1) * THEME_COLOR_ACCENT_RED_MULTIPLIER_EFFECT);
-    const accentGreenIntensity = Math.max(50, THEME_COLOR_ACCENT_GREEN_BASE - (multiplier - 1) * THEME_COLOR_ACCENT_GREEN_MULTIPLIER_EFFECT);
-    const accentBlueIntensity = Math.max(50, THEME_COLOR_ACCENT_BLUE_BASE - (multiplier - 1) * THEME_COLOR_ACCENT_BLUE_MULTIPLIER_EFFECT);
-
-    const newAccentColor = `rgb(${accentRedIntensity}, ${accentGreenIntensity}, ${accentBlueIntensity})`;
-    const newAccentHoverColor = `rgb(${Math.max(150, accentRedIntensity - THEME_COLOR_ACCENT_HOVER_RED_DECREASE)}, ${Math.max(30, accentGreenIntensity - THEME_COLOR_ACCENT_HOVER_GREEN_DECREASE)}, ${Math.max(30, accentBlueIntensity - THEME_COLOR_ACCENT_HOVER_BLUE_DECREASE)})`;
-
-    // Update CSS variables
-    document.documentElement.style.setProperty('--primary-color', newPrimaryColor);
-    document.documentElement.style.setProperty('--accent-color', newAccentColor);
-    document.documentElement.style.setProperty('--accent-hover', newAccentHoverColor);
-
-    // Update background colors for higher multipliers
-    if (multiplier >= 5) { // Start changing background at 5x multiplier
-        const bgDarkness = Math.max(20, THEME_COLOR_BACKGROUND_DARKNESS_BASE - (multiplier - 5) * THEME_COLOR_BACKGROUND_DARKNESS_MULTIPLIER_EFFECT);
-        const uiBgDarkness = Math.max(30, THEME_COLOR_UI_BACKGROUND_DARKNESS_BASE - (multiplier - 5) * THEME_COLOR_UI_BACKGROUND_DARKNESS_MULTIPLIER_EFFECT);
-
-        document.documentElement.style.setProperty('--background-color', `rgb(${bgDarkness}, ${bgDarkness + 12}, ${bgDarkness + 24})`);
-        document.documentElement.style.setProperty('--ui-background', `rgb(${uiBgDarkness}, ${uiBgDarkness + 12}, ${uiBgDarkness + 24})`);
+    
+    if (enemyHP > 0) { 
+        if (activePowerUps.freeHitTurns > 0) { 
+             showWinMessage("Quick Strike from power-up! Enemy skips turn.", WIN_MESSAGE_DURATION_MS);
+             activePowerUps.freeHitTurns--; 
+             if (!gameOver) spinBtn.disabled = false;
+        } else {
+            enemyAttack();
+        }
+    } else if (!gameOver) { 
+         spinBtn.disabled = false;
     }
 }
 
-// Initialize the game
+function easeOutCubic(t) { return (--t) * t * t + 1; }
+
 function initGame() {
-    xpToNextLevel = calculateXpForLevel(currentLevel); // Initialize here after function is defined
-    // Set up event listeners
+    xpToNextLevel = calculateXpForLevel(currentLevel); 
+    updatePlayerHpUI(); updateEnemyHpUI(); updateXpUI(); 
+    if (creditCostElement) creditCostElement.textContent = 'Spin to Attack!'; 
+    if (resultDiv) resultDiv.textContent = 'Spin the wheel to start combat!';
+    if (enemyAttackAnnouncement) enemyAttackAnnouncement.textContent = '';
+
     spinBtn.addEventListener("click", function() {
-        playSound(sounds.click);
-        spinWheel();
+        if (gameOver) return; 
+        playSound(sounds.click); spinWheel();
     });
 
-    if (powerUpChoicesDiv) {
-        powerUpChoicesDiv.addEventListener('click', handlePowerUpSelection);
-    }
-
-    // Set up multiplier slider
-    multiplierSlider.addEventListener("input", function() {
-        currentMultiplier = parseInt(this.value);
-        multiplierValue.textContent = `${currentMultiplier}x`;
-
-        // Update spin cost
-        spinCost = DEFAULT_SPIN_COST * currentMultiplier;
-        creditCostElement.innerHTML = `Credit cost: <span class="highlight">${spinCost}</span>`; // Use innerHTML for span
-
-        // Update theme colors based on multiplier
-        updateThemeColors(currentMultiplier);
-
-        // Play click sound
-        playSound(sounds.click);
-    });
-
-    // Set up sound toggle
+    if (powerUpChoicesDiv) powerUpChoicesDiv.addEventListener('click', handlePowerUpSelection);
+    if(restartGameBtn) restartGameBtn.addEventListener('click', restartGame);
+    
     toggleSoundBtn.addEventListener("click", function() {
         soundEnabled = !soundEnabled;
-
-        // Update icon
         const icon = this.querySelector('i');
         if (soundEnabled) {
-            icon.className = 'fas fa-volume-up';
-            sounds.background.play();
+            icon.className = 'fas fa-volume-up'; sounds.background.play().catch(e=>console.warn("BG music autoplay prevented"));
         } else {
-            icon.className = 'fas fa-volume-mute';
-            sounds.background.pause();
+            icon.className = 'fas fa-volume-mute'; sounds.background.pause();
         }
-
-        // Play click sound (if sound is now enabled)
-        if (soundEnabled) {
-            playSound(sounds.click);
-        }
+        if (soundEnabled) playSound(sounds.click);
     });
 
-    // Initial values
-    creditCostElement.innerHTML = `Credit cost: <span class="highlight">${spinCost}</span>`;
-
-    // Initial render
     drawWheel();
-    updateXpUI(); // Initial XP UI setup
-
-    // Start background music after a short delay
     setTimeout(() => {
-        if (soundEnabled) {
-            sounds.background.play().catch(e => console.log("Background music autoplay prevented:", e));
-        }
+        if (soundEnabled) sounds.background.play().catch(e => console.warn("BG music autoplay prevented:", e));
     }, BACKGROUND_MUSIC_DELAY_MS);
-
-    // Add welcome animation message
-    setTimeout(() => {
-        showWinMessage("Welcome to Wheel of Fortune!");
-    }, WELCOME_MESSAGE_DELAY_MS);
+    setTimeout(() => { showWinMessage("Welcome to the Arena!"); }, WELCOME_MESSAGE_DELAY_MS);
 }
 
-// Add CSS for particles
 const particleStyle = document.createElement('style');
 particleStyle.textContent = `
-.particle {
-    position: absolute;
-    border-radius: 50%;
-    pointer-events: none;
-    z-index: 1000;
-}
+.particle { position: absolute; border-radius: 50%; pointer-events: none; z-index: 1000; }
 `;
 document.head.appendChild(particleStyle);
 
