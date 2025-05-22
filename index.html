@@ -34,21 +34,30 @@
             <div id="creditCost">Credit cost: <span class="highlight">10</span></div>
         </div>
 
+        <div id="player-stats" class="ui-section">
+          <h2>Player</h2>
+          <div id="player-hp-text">HP: 100 / 100</div>
+          <div id="player-hp-bar-container">
+            <div id="player-hp-bar-fill"></div>
+          </div>
+        </div>
+
         <div id="result" aria-live="polite"></div>
         <div id="win-message" class="hidden" aria-live="polite"></div>
     </div>
 
     <div class="right-column">
-        <div class="ui-section" id="rules">
-            <h2>Game Rules</h2>
-            <p>Spin the wheel to win points! The more points you collect, the higher your score.</p>
-            <ul>
-                <li>Each spin costs 10 credits by default</li>
-                <li>Increase your bet (1-10x) for higher risk and reward</li>
-                <li>Spin values range from 0 to 500 points</li>
-                <li>Be careful! Many sections have low or zero value</li>
-                <li>Game ends when you run out of credits</li>
-            </ul>
+        <div id="enemy-section" class="ui-section">
+          <h2>Enemy</h2>
+          <div id="enemy-display">
+            <!-- Placeholder for enemy image - can be a div styled with a background, or an img tag -->
+            <div id="enemy-image-placeholder" style="width:150px; height:150px; background: #555; margin: 0 auto 15px; border-radius: 8px;"></div>
+          </div>
+          <div id="enemy-hp-text">HP: 150 / 150</div>
+          <div id="enemy-hp-bar-container">
+            <div id="enemy-hp-bar-fill"></div>
+          </div>
+          <div id="enemy-attack-announcement" style="margin-top: 15px; min-height: 40px; font-weight: bold;"></div>
         </div>
 
         <div class="ui-section" id="xp-system">
@@ -59,23 +68,17 @@
             <div id="xp-bar-fill"></div>
           </div>
         </div>
-
-        <div class="ui-section" id="betting">
-            <h2>Risk Multiplier</h2>
-            <div class="multiplier-container">
-                <input type="range" id="multiplierSlider" min="1" max="10" value="1" class="multiplier-slider">
-                <div class="multiplier-value">1x</div>
-            </div>
-            <p>Current Balance: <span id="balance">100</span> credits</p>
-        </div>
-
-        <div class="ui-section" id="history">
-            <h2>Spin History</h2>
-            <div id="spinHistory">
-                <p>No spins yet. Start playing!</p>
-            </div>
-        </div>
+        
+        <!-- Old sections like #rules, #betting, #history are removed from here -->
     </div>
+</div>
+
+<div id="game-over-modal" class="modal hidden">
+  <div class="modal-content">
+    <h2 id="game-over-title">Game Over!</h2>
+    <p id="game-over-message">You have been defeated.</p>
+    <button id="restart-game-btn" class="powerup-choice-btn">Restart Game</button>
+  </div>
 </div>
 
 <div id="powerup-modal" class="modal hidden">
