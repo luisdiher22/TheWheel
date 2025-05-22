@@ -27,10 +27,10 @@ const ENEMY_ATTACK_DELAY_MS = 1500;
 
 const PLAYER_MAX_HP = 100;
 let playerHP = PLAYER_MAX_HP;
-const ENEMY_MAX_HP = 150; 
+const ENEMY_MAX_HP = 80;
 let enemyHP = ENEMY_MAX_HP;
 const enemyAttackPattern = ['light', 'medium', 'light', 'heavy']; 
-const enemyAttackValues = { light: 10, medium: 15, heavy: 25 }; 
+const enemyAttackValues = { light: 5, medium: 10, heavy: 20 };
 let currentEnemyAttackIndex = 0;
 
 const powerUpsData = [
