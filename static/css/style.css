@@ -461,3 +461,120 @@ h1 {
 }
 /* NOTE: The block of duplicated light-theme CSS rules previously at the end of this file has been removed. */
 /* Added player-hit animation for JS integration */
+
+
+/* Monte Carlo Simulation Styles */
+#toggleSimModeBtn { /* Style like spinBtn */
+    background-color: #e74c3c;
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    font-size: 1.2em;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.1s;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    margin-left: 10px; /* From inline style */
+}
+#toggleSimModeBtn:hover {
+    background-color: #c0392b;
+}
+#toggleSimModeBtn:active {
+    transform: scale(0.98);
+}
+#toggleSimModeBtn:disabled { /* Assuming it might be disabled */
+    background-color: #95a5a6;
+    cursor: not-allowed;
+}
+
+/* #monte-carlo-section inherits .ui-section styles */
+/* JS currently handles display:none; for #monte-carlo-section. 
+   A utility class could be: .hidden-by-css { display: none !important; } */
+
+#simulation-controls-panel label {
+    display: block;
+    margin-bottom: 5px;
+    color: #bdc3c7; /* Consistent with other labels */
+    text-align: left; /* Align labels left for better readability */
+}
+#simulation-controls-panel strong { /* For "Jugador Simulado X:" */
+    display: block;
+    margin-bottom: 8px;
+    color: #ecf0f1; /* Brighter for emphasis */
+    text-align: left;
+}
+
+#simulation-controls-panel input[type="number"],
+#simulation-controls-panel select {
+    width: 100%; /* Inputs take full width of their parent div */
+    padding: 8px; /* Adjusted padding */
+    border: 1px solid #2c3e50;
+    border-radius: 4px;
+    box-sizing: border-box;
+    background-color: #ecf0f1;
+    color: #2c3e50;
+    font-size: 0.95em; /* Adjusted font size */
+    margin-bottom: 10px; /* Spacing below each input/select */
+}
+/* Specific width for simRepetitions if needed, but its parent div can control width too */
+#simRepetitions {
+     width: auto; /* Allow its parent div and inline style to control if needed */
+     min-width: 80px;
+}
+
+.sim-player-config {
+    border: 1px solid #2c3e50; /* Darker border, consistent with .bet-input */
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: 5px;
+    background-color: #34495e80; /* Slightly transparent version of column bg for sub-section */
+}
+/* The flex container for bet type and amount within sim-player-config */
+.sim-player-config > div[style*="display: flex"] {
+    gap: 15px; /* Increase gap for better spacing */
+}
+.sim-player-config > div[style*="display: flex"] > div {
+    flex: 1; /* Allow label+input groups to share space */
+}
+
+
+#runSimBtn { /* Style like add-player-btn */
+    background-color: #27ae60;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    font-size: 1.1em;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    display: block; /* Make it block to take full width */
+    width: 100%;
+    margin-top: 10px; /* Space above the button */
+    box-sizing: border-box;
+}
+#runSimBtn:hover {
+    background-color: #2ecc71;
+}
+
+#simulation-results-display {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: rgba(0,0,0,0.1); /* Subtle background, like #payouts-display */
+    border-radius: 5px;
+    min-height: 50px;
+    text-align: left; /* Align text left for results */
+}
+#simulation-results-display h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #e74c3c; /* Theme accent color */
+    font-size: 1.2em;
+}
+#simulation-results-display p {
+    margin: 8px 0;
+    font-size: 1em;
+    color: #ecf0f1; /* Standard text color */
+}
+#simulation-results-display p[style*="color: red"] { /* For error messages from JS */
+    font-weight: bold;
+}

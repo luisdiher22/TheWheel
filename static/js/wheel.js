@@ -45,6 +45,7 @@ let players = []; // Array to store player objects
 let nextPlayerId = 1;
 let isSpinning = false;
 let soundEnabled = true;
+let simModeActive = false; // Track simulation mode state
 
 // DOM Elements
 const canvas = document.getElementById("wheel");
@@ -62,6 +63,20 @@ const addPlayerBtn = document.getElementById('add-player-btn');
 const playerCountSpan = document.getElementById('player-count');
 // const minBetDisplay = document.getElementById('min-bet'); // Optional
 // const maxBetDisplay = document.getElementById('max-bet'); // Optional
+
+// Simulation Mode DOM Elements
+const toggleSimModeBtn = document.getElementById('toggleSimModeBtn');
+const monteCarloSection = document.getElementById('monte-carlo-section');
+const simRepetitionsInput = document.getElementById('simRepetitions');
+const runSimBtn = document.getElementById('runSimBtn');
+const simResultsDisplay = document.getElementById('simulation-results-display');
+const simP1BetType = document.getElementById('simP1BetType');
+const simP1BetAmount = document.getElementById('simP1BetAmount');
+const simP2BetType = document.getElementById('simP2BetType');
+const simP2BetAmount = document.getElementById('simP2BetAmount');
+const simP3BetType = document.getElementById('simP3BetType');
+const simP3BetAmount = document.getElementById('simP3BetAmount');
+
 
 function createPlayerHTML(player) {
     const playerDiv = document.createElement('div');
@@ -536,6 +551,64 @@ function initGame() {
 
     if (addPlayerBtn) { // Added null check
        addPlayerBtn.addEventListener('click', addPlayer);
+    }
+
+    // Initialize Simulation Mode UI
+    if (monteCarloSection) {
+        monteCarloSection.style.display = 'none'; // Hide initially
+    }
+
+    if (toggleSimModeBtn) {
+        toggleSimModeBtn.addEventListener('click', () => {
+            simModeActive = !simModeActive;
+            if (simModeActive) {
+                if (monteCarloSection) monteCarloSection.style.display = 'block';
+                toggleSimModeBtn.textContent = 'Salir Modo Simulación';
+                if(spinBtn) spinBtn.disabled = true;
+                if(addPlayerBtn) addPlayerBtn.disabled = true;
+                document.querySelectorAll('.bet-input').forEach(el => el.disabled = true);
+                document.querySelectorAll('.remove-player-btn').forEach(el => el.disabled = true);
+            } else {
+                if (monteCarloSection) monteCarloSection.style.display = 'none';
+                toggleSimModeBtn.textContent = 'Modo Simulación';
+                validateAllBetsAndToggleButton(); // This re-evaluates spinBtn
+                if(addPlayerBtn) addPlayerBtn.disabled = false;
+                document.querySelectorAll('.bet-input').forEach(el => el.disabled = false);
+                document.querySelectorAll('.remove-player-btn').forEach(el => el.disabled = false);
+            }
+        });
+    }
+
+    if (runSimBtn) {
+        runSimBtn.addEventListener('click', () => {
+            const repetitions = parseInt(simRepetitionsInput.value);
+            if (isNaN(repetitions) || repetitions <= 0) {
+                simResultsDisplay.innerHTML = "<p style='color: red;'>Por favor, introduce un número válido de repeticiones.</p>";
+                return;
+            }
+
+            const simPlayers = [
+                { nombre: "Jugador Simulado 1", apuesta_a: simP1BetType.value, monto: parseInt(simP1BetAmount.value) || 0 },
+                { nombre: "Jugador Simulado 2", apuesta_a: simP2BetType.value, monto: parseInt(simP2BetAmount.value) || 0 },
+                { nombre: "Jugador Simulado 3", apuesta_a: simP3BetType.value, monto: parseInt(simP3BetAmount.value) || 0 }
+            ];
+
+            for(let p of simPlayers) {
+                if (isNaN(p.monto) || p.monto <=0) {
+                     simResultsDisplay.innerHTML = `<p style='color: red;'>Por favor, introduce un monto de apuesta válido para ${p.nombre}.</p>`;
+                     return;
+                }
+            }
+            
+            // runMonteCarloSimulation is globally available from montecarlo.js
+            const results = runMonteCarloSimulation(repetitions, simPlayers); 
+            
+            let resultsHTML = "<h4>Resultados de la Simulación:</h4>";
+            for (const playerName in results) {
+                resultsHTML += `<p>${playerName}: Ganancia/Pérdida Promedio = ${results[playerName].toFixed(2)}</p>`;
+            }
+            simResultsDisplay.innerHTML = resultsHTML;
+        });
     }
     
     // Add 2 players by default
