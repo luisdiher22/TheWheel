@@ -36,7 +36,7 @@ const PAYOUT_RATIOS = {
 };
 const MIN_BET = 1;
 const MAX_BET = 100;
-const INITIAL_PLAYER_BALANCE = 1000;
+const INITIAL_PLAYER_BALANCE = 100;
 const MAX_PLAYERS = 7;
 const BET_OUTCOMES = ["$1", "$2", "$5", "$10", "$20", "Joker"]; // Matches wheel sections
 
@@ -71,23 +71,25 @@ function createPlayerHTML(player) {
     let betOptionsHTML = '';
     BET_OUTCOMES.forEach(outcome => {
         const payoutRatio = getPayoutRatio(outcome); // Helper function to get ratio text
+        const displayOutcome = outcome === "Joker" ? "Comodín" : outcome;
         betOptionsHTML += `
             <div class="bet-option">
-                <label for="p${player.id}-bet-${outcome.replace('$', '')}">${outcome} (${payoutRatio})</label>
+                <label for="p${player.id}-bet-${outcome.replace('$', '')}">${displayOutcome} (${payoutRatio})</label>
                 <input type="number" id="p${player.id}-bet-${outcome.replace('$', '')}" 
                        class="bet-input" data-outcome="${outcome}" min="0" max="${MAX_BET}" placeholder="0">
             </div>
         `;
     });
 
+    // Note: "Remove" button text is in index.html. If it were dynamic here, it would be "Eliminar".
     playerDiv.innerHTML = `
-        <h3>Player ${player.id} <button class="remove-player-btn" data-player-id="${player.id}">Remove</button></h3>
-        <p>Balance: $<span class="player-balance" id="balance-p${player.id}">${player.balance}</span></p>
-        <h4>Place Bets:</h4>
+        <h3>Jugador ${player.id} <button class="remove-player-btn" data-player-id="${player.id}">Eliminar</button></h3>
+        <p>Saldo: $<span class="player-balance" id="balance-p${player.id}">${player.balance}</span></p>
+        <h4>Colocar Apuestas:</h4>
         <div class="betting-options">
             ${betOptionsHTML}
         </div>
-        <p>Total Bet: $<span class="total-player-bet" id="total-bet-p${player.id}">0</span></p>
+        <p>Apuesta Total: $<span class="total-player-bet" id="total-bet-p${player.id}">0</span></p>
     `;
     return playerDiv;
 }
@@ -106,12 +108,12 @@ function getPayoutRatio(outcome) {
 
 function addPlayer() {
     if (players.length >= MAX_PLAYERS) {
-        showWinMessage(`Maximum of ${MAX_PLAYERS} players reached.`, 2000);
+        showWinMessage(`Máximo de ${MAX_PLAYERS} jugadores alcanzado.`, 2000);
         return;
     }
     const newPlayer = {
         id: nextPlayerId++,
-        name: `Player ${nextPlayerId -1}`,
+        name: `Jugador ${nextPlayerId -1}`,
         balance: INITIAL_PLAYER_BALANCE,
         bets: {} 
     };
@@ -166,7 +168,7 @@ function handleBetInputChange(playerId, outcome, amount, inputElement) {
     if (amount > MAX_BET) {
         amount = MAX_BET;
         if(inputElement) inputElement.value = MAX_BET; 
-        showWinMessage(`Max bet per outcome is ${MAX_BET}.`, 1500);
+        showWinMessage(`La apuesta máxima por resultado es ${MAX_BET}.`, 1500);
     }
     
     player.bets[outcome] = amount;
@@ -340,7 +342,8 @@ function drawWheel() {
         ctx.save(); ctx.translate(WHEEL_RADIUS, WHEEL_RADIUS);
         ctx.rotate(startAngle + arcSize / 2); ctx.textAlign = "right";
         ctx.fillStyle = "#fff"; ctx.font = "bold 16px 'Segoe UI', sans-serif";
-        ctx.fillText(sections[i], WHEEL_RADIUS - 10, 10); ctx.restore();
+        const sectionText = sections[i] === "Joker" ? "Comodín" : sections[i];
+        ctx.fillText(sectionText, WHEEL_RADIUS - 10, 10); ctx.restore();
     }
 }
 
@@ -450,11 +453,12 @@ function handleSpinResult(finalAngle) {
 
     const rawIndex = Math.floor((numSections - (finalAngle / 360) * numSections) % numSections);
     const selectedIndex = (rawIndex + numSections) % numSections; 
-    const outcomeString = sections[selectedIndex]; 
+    const outcomeString = sections[selectedIndex];
+    const displayedOutcome = outcomeString === "Joker" ? "Comodín" : outcomeString;
 
     if(resultDiv) {
         resultDiv.className = 'updated'; 
-        resultDiv.textContent = `Landed on: ${outcomeString}`; 
+        resultDiv.textContent = `Cayó en: ${displayedOutcome}`; 
     }
     if(sounds.win) playSound(sounds.win);
 
@@ -494,16 +498,16 @@ function handleSpinResult(finalAngle) {
     });
 
     if (bigWinOccurred) {
-        showWinMessage(`${outcomeString}! Big Win!`, WIN_MESSAGE_DURATION_MS * 1.5);
+        showWinMessage(`¡${displayedOutcome}! ¡Gran Victoria!`, WIN_MESSAGE_DURATION_MS * 1.5);
         if(sounds.bigWin) playSound(sounds.bigWin);
         createParticles(PARTICLE_AMOUNT_BIG_WIN, [colors[selectedIndex]], PARTICLE_DURATION_MS * 1.5);
         shakeScreen(SHAKE_INTENSITY_BIG_WIN, SHAKE_DURATION_BIG_WIN_MS);
     } else if (overallWin) {
-        showWinMessage(`${outcomeString}! Winner!`, WIN_MESSAGE_DURATION_MS);
+        showWinMessage(`¡${displayedOutcome}! ¡Ganador!`, WIN_MESSAGE_DURATION_MS);
         if(sounds.win) playSound(sounds.win); // Play win sound again, maybe a different one for general win
         createParticles(PARTICLE_AMOUNT_SMALL_WIN, [colors[selectedIndex]]);
     } else {
-        showWinMessage(`${outcomeString}. Better luck next time!`, WIN_MESSAGE_DURATION_MS);
+        showWinMessage(`${displayedOutcome}. ¡Mejor suerte la próxima vez!`, WIN_MESSAGE_DURATION_MS);
         if(sounds.lose) playSound(sounds.lose);
     }
     
@@ -527,7 +531,7 @@ function initGame() {
     // xpToNextLevel = calculateXpForLevel(currentLevel); // Removed
     // updatePlayerHpUI(); updateEnemyHpUI(); updateXpUI(); // Removed
     // if (creditCostElement) creditCostElement.textContent = 'Spin to Attack!'; // Removed
-    if (resultDiv) resultDiv.textContent = 'Spin the wheel!'; // Simplified message
+    if (resultDiv) resultDiv.textContent = '¡Gira la rueda!'; // Simplified message
     // if (enemyAttackAnnouncement) enemyAttackAnnouncement.textContent = ''; // Removed
 
     if (addPlayerBtn) { // Added null check
@@ -568,7 +572,7 @@ function initGame() {
        }
     }, BACKGROUND_MUSIC_DELAY_MS);
     setTimeout(() => { 
-        if(winMessageElement) showWinMessage("Add up to 7 players and place your bets!"); 
+        if(winMessageElement) showWinMessage("¡Añade hasta 7 jugadores y coloca tus apuestas!"); 
     }, WELCOME_MESSAGE_DELAY_MS);
 }
 
