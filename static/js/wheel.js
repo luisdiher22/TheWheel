@@ -456,9 +456,58 @@ function handleSpinResult(finalAngle) {
         resultDiv.className = 'updated'; 
         resultDiv.textContent = `Landed on: ${outcomeString}`; 
     }
-    if(sounds.win) playSound(sounds.win); 
+    if(sounds.win) playSound(sounds.win);
 
-    // Payout logic comes next. For now, re-enable controls:
+    let overallWin = false;
+    let bigWinOccurred = false;
+
+    players.forEach(player => {
+        let totalPlayerBet = 0;
+        for (const betOutcome in player.bets) {
+            totalPlayerBet += player.bets[betOutcome] || 0;
+        }
+
+        // Subtract total bet from balance
+        player.balance -= totalPlayerBet;
+
+        let playerWinnings = 0;
+        // Check if the player bet on the winning outcome
+        if (player.bets[outcomeString] && player.bets[outcomeString] > 0) {
+            const betAmountOnWinningOutcome = player.bets[outcomeString];
+            const payoutRatio = PAYOUT_RATIOS[outcomeString];
+            playerWinnings = betAmountOnWinningOutcome * payoutRatio;
+            player.balance += playerWinnings;
+            overallWin = true; // At least one player won something
+
+            if (playerWinnings > betAmountOnWinningOutcome * 10) { // Arbitrary definition of a "big win"
+                bigWinOccurred = true;
+            }
+            // Visual feedback for the winning player
+            const playerSection = document.querySelector(`.player-section[data-player-id="${player.id}"]`);
+            if (playerSection) {
+                playerSection.classList.add('player-hit');
+                shakeScreen(SHAKE_INTENSITY_PLAYER_HIT, SHAKE_DURATION_PLAYER_HIT_MS);
+                setTimeout(() => playerSection.classList.remove('player-hit'), SHAKE_DURATION_PLAYER_HIT_MS + 100);
+            }
+        }
+        updatePlayerBalanceDisplay(player.id, player.balance);
+    });
+
+    if (bigWinOccurred) {
+        showWinMessage(`${outcomeString}! Big Win!`, WIN_MESSAGE_DURATION_MS * 1.5);
+        if(sounds.bigWin) playSound(sounds.bigWin);
+        createParticles(PARTICLE_AMOUNT_BIG_WIN, [colors[selectedIndex]], PARTICLE_DURATION_MS * 1.5);
+        shakeScreen(SHAKE_INTENSITY_BIG_WIN, SHAKE_DURATION_BIG_WIN_MS);
+    } else if (overallWin) {
+        showWinMessage(`${outcomeString}! Winner!`, WIN_MESSAGE_DURATION_MS);
+        if(sounds.win) playSound(sounds.win); // Play win sound again, maybe a different one for general win
+        createParticles(PARTICLE_AMOUNT_SMALL_WIN, [colors[selectedIndex]]);
+    } else {
+        showWinMessage(`${outcomeString}. Better luck next time!`, WIN_MESSAGE_DURATION_MS);
+        if(sounds.lose) playSound(sounds.lose);
+    }
+    
+    // Re-enable controls:
     document.querySelectorAll('.bet-input').forEach(input => input.disabled = false);
     document.querySelectorAll('.remove-player-btn').forEach(btn => btn.disabled = false);
     if (addPlayerBtn) addPlayerBtn.disabled = false;
