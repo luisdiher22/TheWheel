@@ -21,89 +21,209 @@ const BALANCE_UPDATE_ANIMATION_MS = 500;
 const ANTI_CLUMP_MAX_ATTEMPTS = 100; 
 const BACKGROUND_MUSIC_DELAY_MS = 1000;
 const WELCOME_MESSAGE_DELAY_MS = 500;
-const XP_PER_SPIN = 10; 
-const XP_PER_ENEMY_DEFEAT = 50;
-const ENEMY_ATTACK_DELAY_MS = 1500; 
+// const XP_PER_SPIN = 10; // Removed
+// const XP_PER_ENEMY_DEFEAT = 50; // Removed
+// const ENEMY_ATTACK_DELAY_MS = 1500; // Removed
 
-const PLAYER_MAX_HP = 100;
-let playerHP = PLAYER_MAX_HP;
-const ENEMY_MAX_HP = 80;
-let enemyHP = ENEMY_MAX_HP;
-const enemyAttackPattern = ['light', 'medium', 'light', 'heavy']; 
-const enemyAttackValues = { light: 5, medium: 10, heavy: 20 };
-let currentEnemyAttackIndex = 0;
-
-const powerUpsData = [
-    {
-        id: 'bonusCredits', 
-        name: 'Healing Potion!', 
-        description: 'Heal for 25 HP.',
-        applyEffect: function() {
-            if (gameOver) return;
-            playerHP = Math.min(PLAYER_MAX_HP, playerHP + 25);
-            updatePlayerHpUI();
-            showWinMessage('Healed 25 HP!');
-            playSound(sounds.playerHeal); 
-        }
-    },
-    {
-        id: 'freeHit', 
-        name: 'Quick Strike!', 
-        description: 'Attack without an immediate enemy counter-attack!',
-        applyEffect: function() {
-            if (gameOver) return;
-            activePowerUps.freeHitTurns += 1; 
-            showWinMessage('Quick Strike Ready!'); 
-            playSound(sounds.win); 
-        }
-    },
-    {
-        id: 'damageBoost', 
-        name: 'Damage Boost!', 
-        description: 'Your next 3 attacks deal 50% more damage.',
-        applyEffect: function() {
-            if (gameOver) return;
-            activePowerUps.damageBoostTurns = 3; 
-            showWinMessage('Damage Boost for 3 turns!'); 
-            playSound(sounds.win); 
-        }
-    }
-];
-
-let activePowerUps = {
-    damageBoostTurns: 0, 
-    freeHitTurns: 0, 
+// Betting and Player Constants
+const PAYOUT_RATIOS = {
+    "$1": 1,
+    "$2": 2,
+    "$5": 5,
+    "$10": 10,
+    "$20": 20,
+    "Joker": 40
 };
+const MIN_BET = 1;
+const MAX_BET = 100;
+const INITIAL_PLAYER_BALANCE = 1000;
+const MAX_PLAYERS = 7;
+const BET_OUTCOMES = ["$1", "$2", "$5", "$10", "$20", "Joker"]; // Matches wheel sections
 
+// Global game state variables
+let players = []; // Array to store player objects
+let nextPlayerId = 1;
+let isSpinning = false;
+let soundEnabled = true;
+
+// DOM Elements
 const canvas = document.getElementById("wheel");
 const ctx = canvas.getContext("2d");
 const spinBtn = document.getElementById("spinBtn");
 const resultDiv = document.getElementById("result"); 
-const creditCostElement = document.getElementById("creditCost"); 
 const wheelWrapper = document.getElementById("wheel-wrapper");
 const winMessageElement = document.getElementById("win-message");
 const particlesContainer = document.getElementById("particles-container");
 const toggleSoundBtn = document.getElementById("toggleSound");
-const levelDisplay = document.getElementById('level-display');
-const xpDisplay = document.getElementById('xp-display');
-const xpBarFill = document.getElementById('xp-bar-fill');
-const powerupModal = document.getElementById('powerup-modal');
-const powerUpChoicesDiv = document.getElementById('powerup-choices'); 
-const playerHpText = document.getElementById('player-hp-text');
-const playerHpBarFill = document.getElementById('player-hp-bar-fill');
-const enemyHpText = document.getElementById('enemy-hp-text');
-const enemyHpBarFill = document.getElementById('enemy-hp-bar-fill');
-const enemyImagePlaceholder = document.getElementById('enemy-image-placeholder'); 
-const enemyAttackAnnouncement = document.getElementById('enemy-attack-announcement');
-const gameOverModal = document.getElementById('game-over-modal');
-const restartGameBtn = document.getElementById('restart-game-btn');
 
-let gameOver = false; 
-let isSpinning = false;
-let soundEnabled = true;
-let currentXP = 0;
-let currentLevel = 1;
-let xpToNextLevel;
+// New DOM Element References for Betting UI
+const playersContainer = document.getElementById('players-container');
+const addPlayerBtn = document.getElementById('add-player-btn');
+const playerCountSpan = document.getElementById('player-count');
+// const minBetDisplay = document.getElementById('min-bet'); // Optional
+// const maxBetDisplay = document.getElementById('max-bet'); // Optional
+
+function createPlayerHTML(player) {
+    const playerDiv = document.createElement('div');
+    playerDiv.className = 'player-section';
+    playerDiv.dataset.playerId = player.id;
+
+    let betOptionsHTML = '';
+    BET_OUTCOMES.forEach(outcome => {
+        const payoutRatio = getPayoutRatio(outcome); // Helper function to get ratio text
+        betOptionsHTML += `
+            <div class="bet-option">
+                <label for="p${player.id}-bet-${outcome.replace('$', '')}">${outcome} (${payoutRatio})</label>
+                <input type="number" id="p${player.id}-bet-${outcome.replace('$', '')}" 
+                       class="bet-input" data-outcome="${outcome}" min="0" max="${MAX_BET}" placeholder="0">
+            </div>
+        `;
+    });
+
+    playerDiv.innerHTML = `
+        <h3>Player ${player.id} <button class="remove-player-btn" data-player-id="${player.id}">Remove</button></h3>
+        <p>Balance: $<span class="player-balance" id="balance-p${player.id}">${player.balance}</span></p>
+        <h4>Place Bets:</h4>
+        <div class="betting-options">
+            ${betOptionsHTML}
+        </div>
+        <p>Total Bet: $<span class="total-player-bet" id="total-bet-p${player.id}">0</span></p>
+    `;
+    return playerDiv;
+}
+
+function getPayoutRatio(outcome) {
+   switch (outcome) {
+       case "$1": return "1:1";
+       case "$2": return "2:1";
+       case "$5": return "5:1";
+       case "$10": return "10:1";
+       case "$20": return "20:1";
+       case "Joker": return "40:1";
+       default: return "N/A";
+   }
+}
+
+function addPlayer() {
+    if (players.length >= MAX_PLAYERS) {
+        showWinMessage(`Maximum of ${MAX_PLAYERS} players reached.`, 2000);
+        return;
+    }
+    const newPlayer = {
+        id: nextPlayerId++,
+        name: `Player ${nextPlayerId -1}`,
+        balance: INITIAL_PLAYER_BALANCE,
+        bets: {} 
+    };
+    players.push(newPlayer);
+    const playerElement = createPlayerHTML(newPlayer);
+    playersContainer.appendChild(playerElement);
+    updatePlayerCount();
+    attachBetInputListeners(playerElement, newPlayer.id);
+    
+    playerElement.querySelector('.remove-player-btn').addEventListener('click', function() {
+        removePlayer(newPlayer.id);
+    });
+    playSound(sounds.click);
+}
+
+function removePlayer(playerIdToRemove) {
+    players = players.filter(p => p.id !== playerIdToRemove);
+    const playerElement = playersContainer.querySelector(`.player-section[data-player-id="${playerIdToRemove}"]`);
+    if (playerElement) {
+        playersContainer.removeChild(playerElement);
+    }
+    updatePlayerCount();
+    validateAllBetsAndToggleButton(); 
+    playSound(sounds.click);
+}
+
+function updatePlayerCount() {
+    if(playerCountSpan) playerCountSpan.textContent = players.length; // Added null check
+    validateAllBetsAndToggleButton(); 
+}
+
+function attachBetInputListeners(playerElement, playerId) {
+    const betInputs = playerElement.querySelectorAll('.bet-input');
+    betInputs.forEach(input => {
+        input.addEventListener('input', () => {
+            handleBetInputChange(playerId, input.dataset.outcome, parseInt(input.value) || 0, input);
+        });
+        input.addEventListener('change', () => { 
+            handleBetInputChange(playerId, input.dataset.outcome, parseInt(input.value) || 0, input);
+        });
+    });
+}
+
+function handleBetInputChange(playerId, outcome, amount, inputElement) {
+    const player = players.find(p => p.id === playerId);
+    if (!player) return;
+
+    if (amount < 0) {
+       amount = 0;
+       if(inputElement) inputElement.value = amount;
+    }
+    if (amount > MAX_BET) {
+        amount = MAX_BET;
+        if(inputElement) inputElement.value = MAX_BET; 
+        showWinMessage(`Max bet per outcome is ${MAX_BET}.`, 1500);
+    }
+    
+    player.bets[outcome] = amount;
+    updatePlayerTotalBet(playerId);
+    validateAllBetsAndToggleButton(); 
+}
+
+function updatePlayerTotalBet(playerId) {
+    const player = players.find(p => p.id === playerId);
+    if (!player) return;
+    const totalBetDisplay = document.getElementById(`total-bet-p${playerId}`);
+    let totalBet = 0;
+    for (const outcomeKey in player.bets) { 
+        totalBet += player.bets[outcomeKey];
+    }
+    if (totalBetDisplay) totalBetDisplay.textContent = totalBet;
+    return totalBet; 
+}
+
+function updatePlayerBalanceDisplay(playerId, newBalance) {
+    const player = players.find(p => p.id === playerId);
+    if (!player) return;
+    player.balance = newBalance; 
+    const balanceDisplay = document.getElementById(`balance-p${playerId}`);
+    if (balanceDisplay) balanceDisplay.textContent = newBalance;
+}
+
+function validateAllBetsAndToggleButton() {
+    if (!spinBtn) return;
+    if (players.length === 0) {
+        spinBtn.disabled = true;
+        return;
+    }
+
+    let allPlayersHaveValidIndividualBets = true;
+    let atLeastOnePlayerHasPlacedAnyBet = false;
+
+    for (const player of players) {
+        let currentPlayerTotalBet = 0;
+        for (const outcomeKey in player.bets) {
+             currentPlayerTotalBet += player.bets[outcomeKey];
+        }
+
+        if (currentPlayerTotalBet > player.balance) {
+            allPlayersHaveValidIndividualBets = false;
+        }
+        if (currentPlayerTotalBet > 0) {
+            atLeastOnePlayerHasPlacedAnyBet = true;
+        }
+    }
+
+    if (allPlayersHaveValidIndividualBets && atLeastOnePlayerHasPlacedAnyBet) {
+        spinBtn.disabled = isSpinning; 
+    } else {
+        spinBtn.disabled = true;
+    }
+}
 
 const sounds = {
     spin: new Audio('/static/sounds/spin.mp3'),
@@ -112,10 +232,10 @@ const sounds = {
     lose: new Audio('/static/sounds/lose.mp3'), 
     click: new Audio('/static/sounds/click.mp3'),
     background: new Audio('/static/sounds/background.mp3'),
-    playerAttack: new Audio('/static/sounds/click.mp3'), 
-    playerHeal: new Audio('/static/sounds/win.mp3'), 
-    enemyAttack: new Audio('/static/sounds/lose.mp3'),
-    levelUp: new Audio('/static/sounds/win.mp3') 
+    // playerAttack: new Audio('/static/sounds/click.mp3'), // Removed
+    // playerHeal: new Audio('/static/sounds/win.mp3'),  // Removed
+    // enemyAttack: new Audio('/static/sounds/lose.mp3'), // Removed
+    // levelUp: new Audio('/static/sounds/win.mp3')  // Removed
 };
 
 Object.values(sounds).forEach(sound => { sound.volume = 0.5; });
@@ -283,139 +403,32 @@ function playSound(sound) {
     catch (error) { console.error("Error playing sound:", error); return Promise.resolve(); }
 }
 
-function updatePlayerHpUI() {
-    if (playerHpText) playerHpText.textContent = `HP: ${playerHP} / ${PLAYER_MAX_HP}`;
-    if (playerHpBarFill) {
-        const playerHpPercentage = (playerHP / PLAYER_MAX_HP) * 100;
-        playerHpBarFill.style.width = `${Math.max(0, playerHpPercentage)}%`;
-    }
-}
-
-function updateEnemyHpUI() {
-    if (enemyHpText) enemyHpText.textContent = `HP: ${enemyHP} / ${ENEMY_MAX_HP}`;
-    if (enemyHpBarFill) {
-        const enemyHpPercentage = (enemyHP / ENEMY_MAX_HP) * 100;
-        enemyHpBarFill.style.width = `${Math.max(0, enemyHpPercentage)}%`;
-    }
-}
-
-function showGameOverModal() {
-    if (!gameOverModal) return;
-    const messageElement = gameOverModal.querySelector('#game-over-message');
-    const titleElement = gameOverModal.querySelector('#game-over-title');
-    if (playerHP <= 0) {
-        titleElement.textContent = "Game Over!";
-        messageElement.textContent = "You have been defeated!";
-    } else if (enemyHP <= 0) {
-        titleElement.textContent = "Victory!";
-        messageElement.textContent = "Enemy vanquished! A new foe appears..."; 
-    }
-    gameOverModal.classList.remove('hidden');
-}
-
-function hideGameOverModal() {
-    if (gameOverModal) gameOverModal.classList.add('hidden');
-}
-
-function handlePlayerDefeat() {
-    gameOver = true;
-    playSound(sounds.lose); 
-    shakeScreen(SHAKE_INTENSITY_GAME_OVER, SHAKE_DURATION_GAME_OVER_MS);
-    showGameOverModal(); 
-    spinBtn.disabled = true;
-}
-
-function handleEnemyDefeated() {
-    playSound(sounds.bigWin);
-    createParticles(PARTICLE_AMOUNT_BIG_WIN, ['#f1c40f', '#2ecc71']); 
-    showWinMessage("Enemy Defeated! Bonus XP!", 2500);
-    
-    currentXP += XP_PER_ENEMY_DEFEAT; 
-    updateXpUI(); 
-    
-    enemyHP = ENEMY_MAX_HP; 
-    updateEnemyHpUI();
-    currentEnemyAttackIndex = 0;
-    if(enemyAttackAnnouncement) enemyAttackAnnouncement.textContent = "A new challenger approaches!";
-    
-    checkLevelUp(); 
-
-    if (powerupModal.classList.contains('hidden') && playerHP > 0 && !gameOver) { 
-        spinBtn.disabled = false; 
-    } else if (gameOver) { 
-        spinBtn.disabled = true;
-    }
-}
-
-function enemyAttack() { 
-    if (gameOver) {
-        spinBtn.disabled = true; 
-        return;
-    }
-
-    const attackType = enemyAttackPattern[currentEnemyAttackIndex];
-    const damageDealtByEnemy = enemyAttackValues[attackType];
-    
-    if(enemyAttackAnnouncement) enemyAttackAnnouncement.textContent = `Enemy prepares ${attackType} attack...`;
-    
-    setTimeout(() => {
-        if (gameOver) return; 
-
-        playerHP = Math.max(0, playerHP - damageDealtByEnemy);
-        updatePlayerHpUI();
-        playSound(sounds.enemyAttack);
-        shakeScreen(SHAKE_INTENSITY_PLAYER_HIT, SHAKE_DURATION_PLAYER_HIT_MS);
-        
-        if(enemyAttackAnnouncement) enemyAttackAnnouncement.textContent = `Enemy used ${attackType} and dealt ${damageDealtByEnemy} damage!`;
-        
-        currentEnemyAttackIndex = (currentEnemyAttackIndex + 1) % enemyAttackPattern.length;
-
-        if (playerHP <= 0) {
-            handlePlayerDefeat();
-        } else {
-            if (!powerupModal.classList.contains('hidden')) {
-                 spinBtn.disabled = true; 
-            } else {
-                 spinBtn.disabled = false; 
-            }
-        }
-    }, ENEMY_ATTACK_DELAY_MS); 
-}
-
-function restartGame() {
-    gameOver = false;
-    playerHP = PLAYER_MAX_HP;
-    enemyHP = ENEMY_MAX_HP; 
-    currentLevel = 1; 
-    currentXP = 0;
-    xpToNextLevel = calculateXpForLevel(currentLevel);
-    currentEnemyAttackIndex = 0;
-    activePowerUps = { freeHitTurns: 0, damageBoostTurns: 0 };
-
-    updatePlayerHpUI(); 
-    updateEnemyHpUI(); 
-    updateXpUI();
-    hideGameOverModal();
-    if(resultDiv) resultDiv.textContent = 'Spin the wheel to start combat!'; 
-    if(enemyAttackAnnouncement) enemyAttackAnnouncement.textContent = '';
-    if(winMessageElement) winMessageElement.classList.add('hidden'); 
-    
-    spinBtn.disabled = false;
-    playSound(sounds.click); 
-}
+// Removed updatePlayerHpUI
+// Removed updateEnemyHpUI
+// Removed showGameOverModal
+// Removed hideGameOverModal
+// Removed handlePlayerDefeat
+// Removed handleEnemyDefeated
+// Removed enemyAttack
+// Removed restartGame (will be re-added with different logic)
 
 function spinWheel() {
-    if (isSpinning || gameOver) return;
-    isSpinning = true;
-    wheelWrapper.classList.add('spinning'); spinBtn.classList.add('spinning');
-    spinBtn.disabled = true; 
-    if(enemyAttackAnnouncement) enemyAttackAnnouncement.textContent = ''; 
-    resultDiv.textContent = ''; 
+    if (isSpinning || (spinBtn && spinBtn.disabled)) return; 
+    
+    isSpinning = true; 
+    if(wheelWrapper) wheelWrapper.classList.add('spinning'); 
+    if(spinBtn) spinBtn.classList.add('spinning');
 
-    playSound(sounds.spin); playSound(sounds.click);
+    document.querySelectorAll('.bet-input').forEach(input => input.disabled = true);
+    document.querySelectorAll('.remove-player-btn').forEach(btn => btn.disabled = true);
+    if (addPlayerBtn) addPlayerBtn.disabled = true;
+    
+    if(sounds.spin) playSound(sounds.spin); 
+    
     const randomExtraSpins = Math.random() * 360; 
     const totalRotation = (MIN_SPINS * 360) + randomExtraSpins; 
     const animationStartTime = performance.now();
+
     function animate(currentTime) {
         const elapsedTime = currentTime - animationStartTime;
         const progress = elapsedTime / SPIN_DURATION_MS;
@@ -423,8 +436,6 @@ function spinWheel() {
             const currentSpinAmount = easeOutCubic(progress) * totalRotation;
             angle = currentSpinAmount; drawRotatedWheel(angle); requestAnimationFrame(animate); 
         } else {
-            isSpinning = false;
-            wheelWrapper.classList.remove('spinning'); spinBtn.classList.remove('spinning');
             const finalAngle = (angle + POINTER_OFFSET_DEGREES) % 360;
             handleSpinResult(finalAngle); 
         }
@@ -433,185 +444,83 @@ function spinWheel() {
 }
 
 function handleSpinResult(finalAngle) {
-    if (gameOver && !isSpinning) { 
-        spinBtn.disabled = true; 
-        return;
-    }
+    isSpinning = false; 
+    if(wheelWrapper) wheelWrapper.classList.remove('spinning'); 
+    if(spinBtn) spinBtn.classList.remove('spinning');
 
     const rawIndex = Math.floor((numSections - (finalAngle / 360) * numSections) % numSections);
-    const selectedIndex = (rawIndex + numSections) % numSections;
+    const selectedIndex = (rawIndex + numSections) % numSections; 
     const outcomeString = sections[selectedIndex]; 
 
-    resultDiv.className = 'updated'; 
-    let damageDealt = 0;
-    let message = "";
-    let playerActionSound = sounds.playerAttack; 
-
-    if (outcomeString.includes("Heal")) {
-        const healAmount = parseInt(outcomeString.split(" ")[1]);
-        playerHP = Math.min(PLAYER_MAX_HP, playerHP + healAmount);
-        updatePlayerHpUI();
-        message = `You used Heal and recovered ${healAmount} HP!`;
-        playerActionSound = sounds.playerHeal; 
-        createParticles(PARTICLE_AMOUNT_SMALL_WIN, ['#2ecc71', '#27ae60']); 
-    } else {
-        damageDealt = parseInt(outcomeString);
-        if (isNaN(damageDealt)) damageDealt = 0; 
-
-        if (damageDealt === 0) {
-            message = "You missed!";
-            playerActionSound = sounds.lose; 
-        } else {
-            let actualDamage = damageDealt;
-            if (activePowerUps.damageBoostTurns > 0) {
-                actualDamage = Math.round(actualDamage * 1.5);
-                activePowerUps.damageBoostTurns--;
-                showWinMessage(`Damage Boost! ${actualDamage} DMG! (${activePowerUps.damageBoostTurns} left)`, 1500);
-            }
-            
-            enemyHP = Math.max(0, enemyHP - actualDamage);
-            updateEnemyHpUI();
-            message = `You dealt ${actualDamage} damage!`;
-            
-            if (actualDamage >= 30) { 
-                 createParticles(PARTICLE_AMOUNT_BIG_WIN, ['#c0392b', '#e74c3c', '#f1c40f']);
-                 shakeScreen(SHAKE_INTENSITY_BIG_WIN, SHAKE_DURATION_BIG_WIN_MS);
-                 playerActionSound = sounds.bigWin;
-            } else if (actualDamage >= 20) { 
-                 createParticles(PARTICLE_AMOUNT_BIG_WIN, ['#e74c3c', '#d35400']); 
-                 shakeScreen(SHAKE_INTENSITY_SMALL, SHAKE_DURATION_SMALL_MS);
-            } else if (actualDamage > 0) { 
-                 createParticles(PARTICLE_AMOUNT_SMALL_WIN, ['#f1c40f', '#e67e22']);
-            }
-        }
+    if(resultDiv) {
+        resultDiv.className = 'updated'; 
+        resultDiv.textContent = `Landed on: ${outcomeString}`; 
     }
-    resultDiv.textContent = message;
-    playSound(playerActionSound);
+    if(sounds.win) playSound(sounds.win); 
 
-    currentXP += XP_PER_SPIN;
-    updateXpUI(); 
+    // Payout logic comes next. For now, re-enable controls:
+    document.querySelectorAll('.bet-input').forEach(input => input.disabled = false);
+    document.querySelectorAll('.remove-player-btn').forEach(btn => btn.disabled = false);
+    if (addPlayerBtn) addPlayerBtn.disabled = false;
     
-    if (enemyHP <= 0) {
-        handleEnemyDefeated(); 
-    } else {
-        checkLevelUp(); 
-        if (powerupModal.classList.contains('hidden')) { 
-            if (activePowerUps.freeHitTurns > 0) {
-                activePowerUps.freeHitTurns--;
-                showWinMessage("Quick Strike! Enemy doesn't counter.", WIN_MESSAGE_DURATION_MS);
-                if (!gameOver) spinBtn.disabled = false; 
-            } else {
-                enemyAttack(); 
-            }
-        }
-    }
+    validateAllBetsAndToggleButton(); 
 }
 
-function calculateXpForLevel(level) { return level * 100; }
-
-function updateXpUI() {
-    if (levelDisplay) levelDisplay.textContent = `Level: ${currentLevel}`;
-    if (xpDisplay) xpDisplay.textContent = `XP: ${currentXP} / ${xpToNextLevel}`;
-    if (xpBarFill) {
-        const xpPercentage = xpToNextLevel > 0 ? (currentXP / xpToNextLevel) * 100 : 0;
-        xpBarFill.style.width = `${Math.max(0, Math.min(100,xpPercentage))}%`;
-    }
-}
-
-function checkLevelUp() {
-    if (currentXP >= xpToNextLevel && !gameOver && enemyHP > 0 ) { 
-        currentXP -= xpToNextLevel;
-        currentLevel++;
-        xpToNextLevel = calculateXpForLevel(currentLevel);
-        playSound(sounds.levelUp); 
-        updateXpUI(); 
-        displayPowerUpChoices(); 
-    } else if (currentXP >= xpToNextLevel && !gameOver && enemyHP <= 0) {
-        currentXP -= xpToNextLevel;
-        currentLevel++;
-        xpToNextLevel = calculateXpForLevel(currentLevel);
-        playSound(sounds.levelUp); 
-        updateXpUI();
-    }
-}
-
-function displayPowerUpChoices() {
-    if (!powerupModal || !powerUpChoicesDiv) return;
-    const selectedChoices = powerUpsData.slice(0, 3); 
-    const choiceButtons = powerUpChoicesDiv.querySelectorAll('.powerup-choice-btn');
-    choiceButtons.forEach((button, index) => {
-        if (selectedChoices[index]) {
-            const powerUp = selectedChoices[index];
-            button.querySelector('.powerup-name').textContent = powerUp.name;
-            button.querySelector('.powerup-description').textContent = powerUp.description;
-            button.dataset.powerupId = powerUp.id; button.style.display = ''; 
-        } else { button.style.display = 'none'; }
-    });
-    powerupModal.classList.remove('hidden');
-    spinBtn.disabled = true; 
-}
-
-function handlePowerUpSelection(event) {
-    const button = event.target.closest('.powerup-choice-btn');
-    if (!button) return;
-    const powerupId = button.dataset.powerupId;
-    const selectedPowerUp = powerUpsData.find(p => p.id === powerupId);
-    if (selectedPowerUp && selectedPowerUp.applyEffect) {
-        selectedPowerUp.applyEffect();
-    }
-    powerupModal.classList.add('hidden');
-
-    if (gameOver) { 
-        spinBtn.disabled = true;
-        return;
-    }
-    
-    if (enemyHP > 0) { 
-        if (activePowerUps.freeHitTurns > 0) { 
-             showWinMessage("Quick Strike from power-up! Enemy skips turn.", WIN_MESSAGE_DURATION_MS);
-             activePowerUps.freeHitTurns--; 
-             if (!gameOver) spinBtn.disabled = false;
-        } else {
-            enemyAttack();
-        }
-    } else if (!gameOver) { 
-         spinBtn.disabled = false;
-    }
-}
+// Removed calculateXpForLevel
+// Removed updateXpUI
+// Removed checkLevelUp
+// Removed displayPowerUpChoices
+// Removed handlePowerUpSelection
 
 function easeOutCubic(t) { return (--t) * t * t + 1; }
 
 function initGame() {
-    xpToNextLevel = calculateXpForLevel(currentLevel); 
-    updatePlayerHpUI(); updateEnemyHpUI(); updateXpUI(); 
-    if (creditCostElement) creditCostElement.textContent = 'Spin to Attack!'; 
-    if (resultDiv) resultDiv.textContent = 'Spin the wheel to start combat!';
-    if (enemyAttackAnnouncement) enemyAttackAnnouncement.textContent = '';
+    // xpToNextLevel = calculateXpForLevel(currentLevel); // Removed
+    // updatePlayerHpUI(); updateEnemyHpUI(); updateXpUI(); // Removed
+    // if (creditCostElement) creditCostElement.textContent = 'Spin to Attack!'; // Removed
+    if (resultDiv) resultDiv.textContent = 'Spin the wheel!'; // Simplified message
+    // if (enemyAttackAnnouncement) enemyAttackAnnouncement.textContent = ''; // Removed
 
-    spinBtn.addEventListener("click", function() {
-        if (gameOver) return; 
-        playSound(sounds.click); spinWheel();
-    });
-
-    if (powerUpChoicesDiv) powerUpChoicesDiv.addEventListener('click', handlePowerUpSelection);
-    if(restartGameBtn) restartGameBtn.addEventListener('click', restartGame);
+    if (addPlayerBtn) { // Added null check
+       addPlayerBtn.addEventListener('click', addPlayer);
+    }
     
-    toggleSoundBtn.addEventListener("click", function() {
-        soundEnabled = !soundEnabled;
-        const icon = this.querySelector('i');
-        if (soundEnabled) {
-            icon.className = 'fas fa-volume-up'; sounds.background.play().catch(e=>console.warn("BG music autoplay prevented"));
-        } else {
-            icon.className = 'fas fa-volume-mute'; sounds.background.pause();
-        }
-        if (soundEnabled) playSound(sounds.click);
-    });
+    // Add 2 players by default
+    addPlayer(); // Creates Player 1
+    addPlayer(); // Creates Player 2
+    
+    // updatePlayerCount(); // updatePlayerCount is called within addPlayer, which calls validateAllBetsAndToggleButton
+    // validateAllBetsAndToggleButton(); // This is also called by updatePlayerCount via addPlayer
 
     drawWheel();
-    setTimeout(() => {
-        if (soundEnabled) sounds.background.play().catch(e => console.warn("BG music autoplay prevented:", e));
+    if (spinBtn) { // Ensure spinBtn exists before adding listener
+        spinBtn.addEventListener("click", function() {
+            playSound(sounds.click); spinWheel();
+        });
+    }
+
+    if (toggleSoundBtn) { // Added null check
+        toggleSoundBtn.addEventListener("click", function() {
+            soundEnabled = !soundEnabled;
+            const icon = this.querySelector('i');
+            if (soundEnabled) {
+                icon.className = 'fas fa-volume-up'; 
+                if(sounds.background) sounds.background.play().catch(e=>console.warn("BG music autoplay prevented"));
+            } else {
+                icon.className = 'fas fa-volume-mute'; 
+                if(sounds.background) sounds.background.pause();
+            }
+            if (soundEnabled && sounds.click) playSound(sounds.click);
+        });
+    }
+    setTimeout(() => { 
+       if (soundEnabled && sounds.background) {
+           sounds.background.play().catch(e => console.warn("BG music autoplay prevented:", e));
+       }
     }, BACKGROUND_MUSIC_DELAY_MS);
-    setTimeout(() => { showWinMessage("Welcome to the Arena!"); }, WELCOME_MESSAGE_DELAY_MS);
+    setTimeout(() => { 
+        if(winMessageElement) showWinMessage("Add up to 7 players and place your bets!"); 
+    }, WELCOME_MESSAGE_DELAY_MS);
 }
 
 const particleStyle = document.createElement('style');
