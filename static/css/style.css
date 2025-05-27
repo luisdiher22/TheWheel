@@ -265,6 +265,22 @@ h1 {
 }
 
 /* Betting and Player Management Styles */
+/* Styles for the new full-width player container */
+#full-width-player-container {
+    width: 98%; /* Allows for body padding */
+    margin: 20px auto; /* Centering and vertical margin */
+    padding: 15px;
+    background-color: #34495e; /* Consistent with column backgrounds */
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    box-sizing: border-box;
+}
+
+/* Adjust #player-management which is a .ui-section, now inside the new container */
+#player-management {
+    margin-bottom: 0; /* Override .ui-section's margin-bottom if it's the sole child */
+}
+
 #player-management h3, #betting-rules h2, #spin-outcome-display h2 { /* Consolidated from .ui-section h2 for specificity if needed */
     margin-top: 0;
     color: #e74c3c; /* Ensure consistency with other h2 */
