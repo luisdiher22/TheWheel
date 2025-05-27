@@ -75,15 +75,16 @@ h1 {
 
 #pointer {
     position: absolute;
-    width: 50px; /* Adjust size as needed */
-    height: 70px; /* Adjust size as needed */
-    background-image: url('../images/pointer.png'); /* Path to your pointer image */
-    background-size: contain;
-    background-repeat: no-repeat;
-    top: -25px; /* Position it above the wheel center */
+    top: -25px; /* Position it above the wheel center, adjust if needed */
     left: 50%;
     transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 15px solid transparent; /* Half-width of the desired base */
+    border-right: 15px solid transparent; /* Half-width of the desired base */
+    border-top: 25px solid #e74c3c; /* Height and color of the pointer */
     z-index: 3; /* Make sure pointer is on top */
+    /* Removed background-image, background-size, background-repeat, width, and height for image */
 }
 #spin-glow {
     position: absolute;
@@ -264,7 +265,7 @@ h1 {
 }
 
 /* Betting and Player Management Styles */
-#player-management h3, #betting-rules h2, #spin-outcome-display h2 {
+#player-management h3, #betting-rules h2, #spin-outcome-display h2 { /* Consolidated from .ui-section h2 for specificity if needed */
     margin-top: 0;
     color: #e74c3c; /* Ensure consistency with other h2 */
 }
@@ -292,6 +293,23 @@ h1 {
     margin-bottom: 8px;
     color: #bdc3c7; /* Lighter grey for "Place Bets" */
 }
+
+/* Player balance and total bet styling for visibility */
+.player-balance, .total-player-bet {
+    color: #f1c40f; /* Yellow, stands out on #34495e background */
+    font-weight: bold;
+}
+/* Player hit animation class */
+.player-section.player-hit {
+    animation: player-hit-animation 0.5s ease-out;
+    box-shadow: 0 0 15px #f1c40f; /* Yellow glow */
+}
+@keyframes player-hit-animation {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.03); }
+    100% { transform: scale(1); }
+}
+
 
 .remove-player-btn {
     background-color: #c0392b; /* Darker red for remove */
@@ -345,7 +363,7 @@ h1 {
     padding-right: 10px; /* Space for scrollbar */
     border: 1px solid #2c3e50;
     border-radius: 5px;
-    padding: 10px;
+    padding: 10px; /* Inner padding */
 }
 /* Custom Scrollbar for players container */
 #players-container::-webkit-scrollbar {
@@ -418,95 +436,5 @@ h1 {
         font-size: 2em;
     }
 }
-/* Additional CSS from the prompt */
-.ui-section {
-    background-color: #f0f0f0;
-    padding: 15px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-#player-management h3, #betting-rules h2, #spin-outcome-display h2 {
-    margin-top: 0;
-    color: #333;
-}
-
-.player-section {
-    border: 1px solid #ddd;
-    padding: 10px;
-    margin-bottom: 10px;
-    border-radius: 5px;
-    background-color: #fff;
-}
-
-.player-section h3 {
-    font-size: 1.2em;
-    margin-bottom: 5px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.remove-player-btn {
-    background-color: #ff6b6b;
-    color: white;
-    border: none;
-    padding: 5px 8px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.8em;
-}
-
-.remove-player-btn:hover {
-    background-color: #ff4757;
-}
-
-.betting-options {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); /* Responsive grid */
-    gap: 10px;
-    margin-bottom: 10px;
-}
-
-.bet-option {
-    display: flex;
-    flex-direction: column;
-}
-
-.bet-option label {
-    font-size: 0.9em;
-    margin-bottom: 3px;
-    color: #555;
-}
-
-.bet-input {
-    width: 100%; /* Make input full width of its grid cell */
-    padding: 8px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    box-sizing: border-box; /* Important for width */
-}
-
-#players-container {
-    max-height: 400px; /* Or other desired height */
-    overflow-y: auto; /* Allow scrolling for many players */
-}
-
-#add-player-btn {
-    background-color: #4CAF50; /* Green */
-    border: none;
-    color: white;
-    padding: 10px 15px;
-    text-align: center;
-    text-decoration: none;
-    display: inline-block;
-    font-size: 1em;
-    margin-bottom: 10px;
-    cursor: pointer;
-    border-radius: 5px;
-}
-
-#add-player-btn:hover {
-    background-color: #45a049;
-}
+/* NOTE: The block of duplicated light-theme CSS rules previously at the end of this file has been removed. */
+/* Added player-hit animation for JS integration */
