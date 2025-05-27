@@ -179,20 +179,31 @@ function distributeEvenly(frequencies) {
 }
 
  const sections = distributeEvenly({
-    "10": 10, "15": 12, "20": 8, "25": 5, "5": 3, "0": 2, "30": 1, "Heal 5": 1 
+    "$1": 24,
+    "$2": 15,
+    "$5": 7,
+    "$10": 4,
+    "$20": 2,
+    "Joker": 2
 });
 
 const colors = sections.map(value => {
-    if (value.includes("Heal")) return "#2ecc71"; 
-    const damage = parseInt(value);
-    if (damage === 0) return "#7f8c8d";    
-    if (damage <= 5) return "#95a5a6";   
-    if (damage <= 10) return "#3498db";   
-    if (damage <= 15) return "#2980b9";   
-    if (damage <= 20) return "#e67e22";   
-    if (damage <= 25) return "#d35400";   
-    if (damage >= 30) return "#c0392b";   
-    return "#555";        
+    switch (value) {
+        case "$1":
+            return "#aec6cf"; // Pastel Blue
+        case "$2":
+            return "#77dd77"; // Pastel Green
+        case "$5":
+            return "#fdfd96"; // Pastel Yellow
+        case "$10":
+            return "#ffb347"; // Pastel Orange
+        case "$20":
+            return "#ff6961"; // Pastel Red
+        case "Joker":
+            return "#c3aed6"; // Pastel Purple
+        default:
+            return "#555"; // Default fallback color
+    }
 });
 
 const numSections = sections.length;
@@ -428,7 +439,7 @@ function handleSpinResult(finalAngle) {
     }
 
     const rawIndex = Math.floor((numSections - (finalAngle / 360) * numSections) % numSections);
-    const selectedIndex = (rawIndex + numSections) % numSections; 
+    const selectedIndex = (rawIndex + numSections) % numSections;
     const outcomeString = sections[selectedIndex]; 
 
     resultDiv.className = 'updated'; 
