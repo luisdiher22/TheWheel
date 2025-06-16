@@ -5,6 +5,7 @@
     <title>Simulador de Montecarlo</title>
     <link rel="stylesheet" href="static/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
@@ -95,8 +96,35 @@
                 <button id="runSimBtn" class="sim-button">Ejecutar Simulación</button>
             </div>
             <hr>
-            <div id="simulation-results-display" style="margin-top: 15px; min-height: 50px;">
+            <div id="simulation-results-display" class="simulation-result-section" style="margin-top: 15px; min-height: 50px;">
                 Los resultados de la simulación aparecerán aquí.
+            </div>
+            <hr>
+            <div id="sector-probabilities-display" class="simulation-result-section" style="margin-top: 15px;">
+                <h4>Sector Frequencies</h4>
+                <!-- Content will be populated by wheel.js -->
+            </div>
+            <hr>
+            <div id="capital-evolution-chart-container" class="simulation-result-section" style="margin-top: 15px;">
+                <h4>Capital Evolution (First Repetition)</h4>
+                <canvas id="capital-evolution-chart"></canvas>
+                <p class="no-data-message" style="text-align: center; display: none;">No data to display for this chart.</p>
+            </div>
+            <hr>
+            <div id="player-statistics-display" class="simulation-result-section" style="margin-top: 15px;">
+                <h4>Player Final Capital Statistics</h4>
+                <!-- Content will be populated by wheel.js -->
+            </div>
+            <hr>
+            <div id="final-capital-histogram-container" class="simulation-result-section" style="margin-top: 15px;">
+                <h4>Final Capital Distribution (First Player)</h4>
+                <canvas id="final-capital-histogram-chart"></canvas>
+                <p class="no-data-message" style="text-align: center; display: none;">No data to display for this chart.</p>
+            </div>
+            <hr>
+            <div id="bankroll-simulation-display" class="simulation-result-section" style="margin-top: 15px;">
+                <h4>Bankroll Simulation Results</h4>
+                <!-- Content will be populated by wheel.js -->
             </div>
         </div>
         
