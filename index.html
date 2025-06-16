@@ -101,29 +101,34 @@
             </div>
             <hr>
             <div id="sector-probabilities-display" class="simulation-result-section" style="margin-top: 15px;">
-                <h4>Sector Frequencies</h4>
+                <h4>Frecuencias de Sectores</h4>
+                <p class="explanation-text">Esta sección muestra cuántas veces ha salido cada sector de la ruleta y su porcentaje respecto al total de giros. Permite comprobar si la distribución de los resultados se acerca a la esperada.</p>
                 <!-- Content will be populated by wheel.js -->
             </div>
             <hr>
             <div id="capital-evolution-chart-container" class="simulation-result-section" style="margin-top: 15px;">
-                <h4>Capital Evolution (First Repetition)</h4>
+                <h4>Evolución del Capital (Primera Repetición)</h4>
+                <p class="explanation-text">Este gráfico de líneas ilustra cómo ha variado el capital de cada jugador a lo largo de los giros durante la primera simulación completa. Ayuda a visualizar tendencias y la volatilidad del juego para cada jugador.</p>
                 <canvas id="capital-evolution-chart"></canvas>
-                <p class="no-data-message" style="text-align: center; display: none;">No data to display for this chart.</p>
+                <p class="no-data-message" style="text-align: center; display: none;">No hay datos para mostrar en este gráfico.</p>
             </div>
             <hr>
             <div id="player-statistics-display" class="simulation-result-section" style="margin-top: 15px;">
-                <h4>Player Final Capital Statistics</h4>
+                <h4>Estadísticas de Capital Final del Jugador</h4>
+                <p class="explanation-text">Aquí se presentan estadísticas clave sobre el capital final de cada jugador después de todas las simulaciones: la media (promedio de cuánto terminaron), la varianza (cuán dispersos fueron sus resultados) y la desviación estándar (una medida del riesgo o variabilidad).</p>
                 <!-- Content will be populated by wheel.js -->
             </div>
             <hr>
             <div id="final-capital-histogram-container" class="simulation-result-section" style="margin-top: 15px;">
-                <h4>Final Capital Distribution (First Player)</h4>
+                <h4>Distribución del Capital Final (Primer Jugador)</h4>
+                <p class="explanation-text">Este histograma muestra la distribución de los resultados de capital final para el primer jugador después de todas las repeticiones. Cada barra representa un rango de capital y su altura indica cuántas veces el jugador terminó en ese rango, mostrando la probabilidad de ganar o perder ciertas cantidades.</p>
                 <canvas id="final-capital-histogram-chart"></canvas>
-                <p class="no-data-message" style="text-align: center; display: none;">No data to display for this chart.</p>
+                <p class="no-data-message" style="text-align: center; display: none;">No hay datos para mostrar en este gráfico.</p>
             </div>
             <hr>
             <div id="bankroll-simulation-display" class="simulation-result-section" style="margin-top: 15px;">
-                <h4>Bankroll Simulation Results</h4>
+                <h4>Resultados de Simulación de Bancarrota</h4>
+                <p class="explanation-text">Esta sección analiza el riesgo de ruina. Muestra cuántas veces cada jugador se quedó sin capital (bancarrota), el porcentaje de simulaciones en las que esto ocurrió y, si quebraron, cuántos giros sobrevivieron en promedio.</p>
                 <!-- Content will be populated by wheel.js -->
             </div>
         </div>
