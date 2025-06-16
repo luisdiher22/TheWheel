@@ -54,33 +54,43 @@ function drawWheel() {
     }
 }
 
-// Optional: Simplified spin animation for visual feedback during simulation
-// This would not determine the outcome, just provide a visual.
-// let currentAngle = 0;
-// function animateWheelSpin(duration = 2000) {
-//     const startTime = performance.now();
-//     function animate(time) {
-//         const elapsed = time - startTime;
-//         const progress = Math.min(elapsed / duration, 1);
-//         currentAngle = (currentAngle + 10 * easeOutCubic(progress)) % 360; // Arbitrary spin speed
-//         drawRotatedWheel(currentAngle);
-//         if (progress < 1) {
-//             requestAnimationFrame(animate);
-//         }
-//     }
-//     requestAnimationFrame(animate);
-// }
-// function drawRotatedWheel(rotation) {
-//    if (!ctx) return;
-//    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-//    ctx.save();
-//    ctx.translate(WHEEL_RADIUS, WHEEL_RADIUS);
-//    ctx.rotate(rotation * Math.PI / 180);
-//    ctx.translate(-WHEEL_RADIUS, -WHEEL_RADIUS);
-//    drawWheel();
-//    ctx.restore();
-// }
-// function easeOutCubic(t) { return (--t) * t * t + 1; }
+let currentWheelAngle = 0; // Keep track of the wheel's visual angle
+
+function drawRotatedWheel(rotation) {
+   if (!ctx || numSections === 0) return; // Ensure canvas context and sections are available
+   ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+   ctx.save();
+   ctx.translate(WHEEL_RADIUS, WHEEL_RADIUS);
+   ctx.rotate(rotation * Math.PI / 180); // Convert degrees to radians
+   ctx.translate(-WHEEL_RADIUS, -WHEEL_RADIUS);
+   drawWheel();
+   ctx.restore();
+}
+
+function easeOutCubic(t) { return (--t) * t * t + 1; }
+
+function animateVisualSpin(duration = 3000) {
+    const totalRotation = (2 * 360) + (Math.random() * 360); // Example: 2 to 3 full spins
+    const animationStartTime = performance.now();
+
+    function spinStep(currentTime) {
+        const elapsedTime = currentTime - animationStartTime;
+        const progress = Math.min(elapsedTime / duration, 1);
+        const easedProgress = easeOutCubic(progress);
+
+        currentWheelAngle = easedProgress * totalRotation;
+        drawRotatedWheel(currentWheelAngle);
+
+        if (progress < 1) {
+            requestAnimationFrame(spinStep);
+        } else {
+            // Optionally, ensure it stops at a clean angle or the final random angle.
+            // currentWheelAngle = totalRotation;
+            // drawRotatedWheel(currentWheelAngle);
+        }
+    }
+    requestAnimationFrame(spinStep);
+}
 
 
 function initApp() {
@@ -156,19 +166,23 @@ function initApp() {
                 return;
             }
 
-            // Optional: Trigger visual spin animation here if implemented
-            // animateWheelSpin();
+            const animationDuration = 3000; // Duration of the spin animation in ms
+            animateVisualSpin(animationDuration);
 
             // runMonteCarloSimulation is globally available from montecarlo.js
             // Ensure montecarlo.js is loaded before this script in index.html
             try {
                 const results = runMonteCarloSimulation(repetitions, simPlayers);
 
-                let resultsHTML = "<h4>Resultados de la Simulación (" + repetitions + " repeticiones):</h4>";
-                for (const playerName in results) {
-                    resultsHTML += `<p>${playerName}: Ganancia/Pérdida Promedio por Giro = ${results[playerName].toFixed(2)}</p>`;
-                }
-                simResultsDisplay.innerHTML = resultsHTML;
+                // Display results after a delay to allow animation to be seen
+                setTimeout(() => {
+                    let resultsHTML = "<h4>Resultados de la Simulación (" + repetitions + " repeticiones):</h4>";
+                    for (const playerName in results) {
+                        resultsHTML += `<p>${playerName}: Ganancia/Pérdida Promedio por Giro = ${results[playerName].toFixed(2)}</p>`;
+                    }
+                    simResultsDisplay.innerHTML = resultsHTML;
+                }, animationDuration);
+
             } catch (error) {
                 console.error("Error during Monte Carlo Simulation:", error);
                 simResultsDisplay.innerHTML = "<p style='color: red;'>Ocurrió un error durante la simulación. Ver consola.</p>";
