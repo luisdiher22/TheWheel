@@ -1,7 +1,20 @@
 // Ensure this file is properly linked in index.html after this subtask.
 
+/**
+ * Shuffles an array in place using the Fisher-Yates algorithm.
+ * @param {Array} array - The array to be shuffled.
+ */
+function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+}
+
 // Constants for simulation - these should mirror wheel.js or be passed in if configurable
 const SIM_SECTORES = ["$1","$1","$1","$1","$1","$1","$1","$1","$1","$1","$1","$1","$1","$1","$1","$1","$1","$1","$1","$1","$1","$1","$1","$1", "$2","$2","$2","$2","$2","$2","$2","$2","$2","$2","$2","$2","$2","$2","$2", "$5","$5","$5","$5","$5","$5","$5", "$10","$10","$10","$10", "$20","$20", "Joker","Joker"];
+shuffleArray(SIM_SECTORES); // Shuffle the sectors array upon initialization
+
 // Payout ratios, consistent with wheel.js
 const SIM_PAYOUT_RATIOS = {
     "$1": 1,
