@@ -97,12 +97,12 @@ function animateVisualSpin(duration = 3000) {
 
 
 function initApp() {
-    // Inicializar sectores y variables relacionadas desde SIM_SECTORES
-    if (typeof SIM_SECTORES !== 'undefined' && Array.isArray(SIM_SECTORES)) {
-        sections = [...SIM_SECTORES]; // Usar una copia de SIM_SECTORES
+    // Inicializar sectores y variables relacionadas desde SECTORES_SIMULACION
+    if (typeof SECTORES_SIMULACION !== 'undefined' && Array.isArray(SECTORES_SIMULACION)) {
+        sections = [...SECTORES_SIMULACION]; // Usar una copia de SECTORES_SIMULACION
         numSections = sections.length;
         arcSize = (2 * Math.PI) / numSections;
-        colors = sections.map(value => { // Regenerar colores basados en SIM_SECTORES
+        colors = sections.map(value => { // Regenerar colores basados en SECTORES_SIMULACION
             switch (value) {
                 case "$1": return "#aec6cf"; // Pastel Blue
                 case "$2": return "#77dd77"; // Pastel Green
@@ -187,16 +187,16 @@ function initApp() {
                 }));
 
 
-                const results = runMonteCarloSimulation(repetitions, simPlayersWithPotentialCapital);
-                const totalSpins = results.spinOutcomes.length;
+                const results = ejecutarSimulacionMontecarlo(repetitions, simPlayersWithPotentialCapital);
+                const totalSpins = results.resultadosDeGiros.length;
 
                 // Mostrar resultados después de un retraso para permitir que se vea la animación
                 setTimeout(() => {
                     // Mostrar ganancia/pérdida promedio
                     let resultsHTML = `<h4>Resultados de la Simulación (${repetitions} repeticiones, ${totalSpins} giros totales):</h4>`;
-                    if (results.averageGainLoss) {
-                        for (const playerName in results.averageGainLoss) {
-                            resultsHTML += `<p>${playerName}: Ganancia/Pérdida Promedio por Repetición = ${results.averageGainLoss[playerName].toFixed(2)}</p>`;
+                    if (results.gananciaPerdidaPromedio) {
+                        for (const playerName in results.gananciaPerdidaPromedio) {
+                            resultsHTML += `<p>${playerName}: Ganancia/Pérdida Promedio por Repetición = ${results.gananciaPerdidaPromedio[playerName].toFixed(2)}</p>`;
                         }
                     } else {
                         resultsHTML += "<p>No se calcularon ganancias promedio.</p>";
@@ -204,16 +204,16 @@ function initApp() {
                     simResultsDisplay.innerHTML = resultsHTML;
 
                     // Mostrar frecuencias de sectores
-                    if (results.sectorFrequencies) {
-                        displaySectorFrequencies(results.sectorFrequencies, totalSpins);
+                    if (results.frecuenciasSector) {
+                        displaySectorFrequencies(results.frecuenciasSector, totalSpins);
                     }
 
                     // Mostrar gráfico de evolución de capital
-                    if (results.capitalEvolution && results.spins_per_repetition) {
+                    if (results.evolucionCapital && results.giros_por_repeticion) {
                         // Comprobar si hay datos de jugadores para mostrar
-                        const playerNames = Object.keys(results.capitalEvolution);
-                        if (playerNames.length > 0 && results.capitalEvolution[playerNames[0]].length > 0) {
-                             displayCapitalEvolutionChart(results.capitalEvolution, results.spins_per_repetition);
+                        const playerNames = Object.keys(results.evolucionCapital);
+                        if (playerNames.length > 0 && results.evolucionCapital[playerNames[0]].length > 0) {
+                             displayCapitalEvolutionChart(results.evolucionCapital, results.giros_por_repeticion);
                         } else {
                             // Manejar caso sin datos de evolución de capital (ej., limpiar gráfico anterior o mostrar mensaje)
                             if (capitalEvolutionChart) {
@@ -225,19 +225,19 @@ function initApp() {
                     }
 
                     // Mostrar estadísticas de jugadores
-                    if (results.playerStats) {
-                        displayPlayerStatistics(results.playerStats);
+                    if (results.estadisticasJugador) {
+                        displayPlayerStatistics(results.estadisticasJugador);
                     }
 
                     // Mostrar histograma de capital final
-                    if (results.finalCapitals) {
-                        displayFinalCapitalHistogram(results.finalCapitals);
+                    if (results.capitalesFinales) {
+                        displayFinalCapitalHistogram(results.capitalesFinales);
                     }
 
                     // Mostrar resultados de simulación de bancarrota
-                    if (results.bankruptcies) {
+                    if (results.bancarrotas) {
                         const totalRepetitions = parseInt(simRepetitionsInput.value); // Obtener total de repeticiones desde la entrada
-                        displayBankrollSimulationResults(results.bankruptcies, totalRepetitions);
+                        displayBankrollSimulationResults(results.bancarrotas, totalRepetitions);
                     }
 
                 }, animationDuration);
@@ -277,9 +277,9 @@ function displaySectorFrequencies(sectorFrequencies, totalSpins) {
         return;
     }
 
-    // Usar SIM_SECTORES (disponible globalmente desde montecarlo.js) para obtener todos los nombres de sectores únicos
+    // Usar SECTORES_SIMULACION (disponible globalmente desde montecarlo.js) para obtener todos los nombres de sectores únicos
     // Esto asegura que todos los sectores definidos se listen, incluso si su frecuencia es 0.
-    const uniqueSectors = [...new Set(SIM_SECTORES)]; // Depende de que SIM_SECTORES esté disponible globalmente
+    const uniqueSectors = [...new Set(SECTORES_SIMULACION)]; // Depende de que SECTORES_SIMULACION esté disponible globalmente
 
     contentHTML += "<table><thead><tr><th>Sector</th><th>Conteos</th><th>Porcentaje</th></tr></thead><tbody>";
 
@@ -416,9 +416,9 @@ function displayPlayerStatistics(playerStats) {
                 const stats = playerStats[playerName];
                 contentHTML += `<div class="player-stat">`;
                 contentHTML += `<strong>${playerName}:</strong><ul>`;
-                contentHTML += `<li>Media del Capital Final: ${stats.mean.toFixed(2)}</li>`;
-                contentHTML += `<li>Varianza del Capital Final: ${stats.variance.toFixed(2)}</li>`;
-                contentHTML += `<li>Desv. Estándar del Capital Final: ${stats.stdDev.toFixed(2)}</li>`;
+                contentHTML += `<li>Media del Capital Final: ${stats.media.toFixed(2)}</li>`;
+                contentHTML += `<li>Varianza del Capital Final: ${stats.varianza.toFixed(2)}</li>`;
+                contentHTML += `<li>Desv. Estándar del Capital Final: ${stats.desvEstandar.toFixed(2)}</li>`;
                 contentHTML += `</ul></div>`;
             }
         }
@@ -589,7 +589,7 @@ function displayBankrollSimulationResults(bankruptciesData, totalRepetitions) {
         for (const playerName in bankruptciesData) {
             if (bankruptciesData.hasOwnProperty(playerName)) {
                 const data = bankruptciesData[playerName];
-                const bankruptcyCount = data.count;
+                const bankruptcyCount = data.conteo; // Updated
                 const bankruptcyPercentage = (bankruptcyCount / totalRepetitions * 100).toFixed(2);
 
                 contentHTML += `<div class="bankroll-stat">`;
@@ -597,8 +597,8 @@ function displayBankrollSimulationResults(bankruptciesData, totalRepetitions) {
                 contentHTML += `<li>Veces en Bancarrota: ${bankruptcyCount} (de ${totalRepetitions} repeticiones)</li>`;
                 contentHTML += `<li>Porcentaje de Bancarrota: ${bankruptcyPercentage}%</li>`;
 
-                if (data.spinsWhenBankrupt && data.spinsWhenBankrupt.length > 0) {
-                    const averageSpinsSurvived = data.spinsWhenBankrupt.reduce((acc, val) => acc + val, 0) / data.spinsWhenBankrupt.length;
+                if (data.girosEnBancarrota && data.girosEnBancarrota.length > 0) { // Updated
+                    const averageSpinsSurvived = data.girosEnBancarrota.reduce((acc, val) => acc + val, 0) / data.girosEnBancarrota.length; // Updated
                     contentHTML += `<li>Promedio de Giros Sobrevividos (en bancarrotas): ${averageSpinsSurvived.toFixed(1)} giros</li>`;
                 } else if (bankruptcyCount > 0) {
                     // Este caso podría ocurrir si count es positivo pero spinsWhenBankrupt está vacío (no debería suceder con la lógica actual)
