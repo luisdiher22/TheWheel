@@ -1,5 +1,8 @@
 (function() { // IIFE Start
 
+let capitalEvolutionChart = null; // To hold the chart instance
+let finalCapitalHistogramChart = null; // To hold the histogram chart instance
+
 // Constants for wheel drawing (if visual wheel is kept for simulation)
 const CANVAS_WIDTH = 400;
 const CANVAS_HEIGHT = 400;
@@ -172,15 +175,71 @@ function initApp() {
             // runMonteCarloSimulation is globally available from montecarlo.js
             // Ensure montecarlo.js is loaded before this script in index.html
             try {
-                const results = runMonteCarloSimulation(repetitions, simPlayers);
+                // Assuming simPlayers are already validated and created
+                // The runMonteCarloSimulation function now expects initialCapital to be part of player objects if desired
+                // For now, this example will proceed without adding initialCapital here,
+                // relying on defaults in montecarlo.js, or assuming it's not critical for this display part.
+                // To be complete, one might add initialCapital inputs in the HTML and pass them here.
+                const simPlayersWithPotentialCapital = simPlayers.map(p => ({
+                     ...p,
+                    // example: initialCapital: parseInt(document.getElementById(`simP${p.nombre.slice(-1)}Capital`).value) || 1000
+                    // For now, we omit this and let montecarlo.js handle defaults if needed by its logic.
+                }));
+
+
+                const results = runMonteCarloSimulation(repetitions, simPlayersWithPotentialCapital);
+                const totalSpins = results.spinOutcomes.length;
 
                 // Display results after a delay to allow animation to be seen
                 setTimeout(() => {
-                    let resultsHTML = "<h4>Resultados de la Simulación (" + repetitions + " repeticiones):</h4>";
-                    for (const playerName in results) {
-                        resultsHTML += `<p>${playerName}: Ganancia/Pérdida Promedio por Giro = ${results[playerName].toFixed(2)}</p>`;
+                    // Display average gain/loss
+                    let resultsHTML = `<h4>Resultados de la Simulación (${repetitions} repeticiones, ${totalSpins} giros totales):</h4>`;
+                    if (results.averageGainLoss) {
+                        for (const playerName in results.averageGainLoss) {
+                            resultsHTML += `<p>${playerName}: Ganancia/Pérdida Promedio por Repetición = ${results.averageGainLoss[playerName].toFixed(2)}</p>`;
+                        }
+                    } else {
+                        resultsHTML += "<p>No se calcularon ganancias promedio.</p>";
                     }
                     simResultsDisplay.innerHTML = resultsHTML;
+
+                    // Display sector frequencies
+                    if (results.sectorFrequencies) {
+                        displaySectorFrequencies(results.sectorFrequencies, totalSpins);
+                    }
+
+                    // Display capital evolution chart
+                    if (results.capitalEvolution && results.spins_per_repetition) {
+                        // Check if there's any player data to display
+                        const playerNames = Object.keys(results.capitalEvolution);
+                        if (playerNames.length > 0 && results.capitalEvolution[playerNames[0]].length > 0) {
+                             displayCapitalEvolutionChart(results.capitalEvolution, results.spins_per_repetition);
+                        } else {
+                            // Handle case with no capital evolution data (e.g., clear previous chart or show message)
+                            if (capitalEvolutionChart) {
+                                capitalEvolutionChart.destroy();
+                                capitalEvolutionChart = null;
+                            }
+                             // Optionally: document.getElementById('capital-evolution-chart-container').innerHTML += "<p>No capital evolution data to display for the first repetition.</p>";
+                        }
+                    }
+
+                    // Display player statistics
+                    if (results.playerStats) {
+                        displayPlayerStatistics(results.playerStats);
+                    }
+
+                    // Display final capital histogram
+                    if (results.finalCapitals) {
+                        displayFinalCapitalHistogram(results.finalCapitals);
+                    }
+
+                    // Display bankroll simulation results
+                    if (results.bankruptcies) {
+                        const totalRepetitions = parseInt(simRepetitionsInput.value); // Get total repetitions from input
+                        displayBankrollSimulationResults(results.bankruptcies, totalRepetitions);
+                    }
+
                 }, animationDuration);
 
             } catch (error) {
@@ -202,5 +261,357 @@ function initApp() {
 
 // Ensure the DOM is fully loaded before initializing
 document.addEventListener('DOMContentLoaded', initApp);
+
+
+function displaySectorFrequencies(sectorFrequencies, totalSpins) {
+    const displayDiv = document.getElementById('sector-probabilities-display');
+    if (!displayDiv) {
+        console.error("Elemento 'sector-probabilities-display' no encontrado.");
+        return;
+    }
+
+    let contentHTML = "<h5>Frecuencias de Sectores:</h5>";
+    if (totalSpins === 0) {
+        contentHTML += "<p>No se realizaron giros.</p>";
+        displayDiv.innerHTML = contentHTML;
+        return;
+    }
+
+    // Use SIM_SECTORES (globally available from montecarlo.js) to get all unique sector names
+    // This ensures all defined sectors are listed, even if their frequency is 0.
+    const uniqueSectors = [...new Set(SIM_SECTORES)]; // Relies on SIM_SECTORES being globally available
+
+    contentHTML += "<table><thead><tr><th>Sector</th><th>Conteos</th><th>Porcentaje</th></tr></thead><tbody>";
+
+    uniqueSectors.sort((a, b) => { // Optional: sort sectors for consistent display
+        if (a === "Joker") return 1; // Joker last
+        if (b === "Joker") return -1;
+        return parseInt(a.substring(1)) - parseInt(b.substring(1));
+    });
+
+    for (const sectorName of uniqueSectors) {
+        const count = sectorFrequencies[sectorName] || 0;
+        const percentage = (count / totalSpins * 100).toFixed(2);
+        const displayName = sectorName === "Joker" ? "Comodín" : sectorName;
+        contentHTML += `<tr><td>${displayName}</td><td>${count}</td><td>${percentage}%</td></tr>`;
+    }
+
+    contentHTML += "</tbody></table>";
+    displayDiv.innerHTML = contentHTML;
+}
+
+function getRandomColor() {
+    const r = Math.floor(Math.random() * 200); // Avoid very light colors for better visibility
+    const g = Math.floor(Math.random() * 200);
+    const b = Math.floor(Math.random() * 200);
+    return `rgb(${r},${g},${b})`;
+}
+
+function displayCapitalEvolutionChart(capitalEvolutionData, spinsPerRepetition) {
+    const container = document.getElementById('capital-evolution-chart-container');
+    if (!container) {
+        console.error("Container 'capital-evolution-chart-container' not found.");
+        return;
+    }
+    const chartCanvas = container.querySelector('canvas'); // Get canvas within container
+    const noDataMessage = container.querySelector('.no-data-message');
+
+    if (!chartCanvas || !noDataMessage) {
+        console.error("Canvas element or no-data-message not found within 'capital-evolution-chart-container'.");
+        return;
+    }
+    const ctx = chartCanvas.getContext('2d');
+
+    if (capitalEvolutionChart) {
+        capitalEvolutionChart.destroy(); // Destroy existing chart instance
+        capitalEvolutionChart = null; // Ensure it's reset
+    }
+
+    // Hide no-data message by default, show if needed
+    noDataMessage.style.display = 'none';
+    chartCanvas.style.display = 'block'; // Show canvas by default
+
+    const labels = Array.from({ length: spinsPerRepetition }, (_, i) => i + 1); // Spin numbers [1, 2, ..., spinsPerRepetition]
+    const datasets = [];
+
+    for (const playerName in capitalEvolutionData) {
+        if (capitalEvolutionData.hasOwnProperty(playerName)) {
+            // Ensure there's data for the first repetition for this player
+            if (capitalEvolutionData[playerName] && capitalEvolutionData[playerName][0]) {
+                datasets.push({
+                    label: playerName,
+                    data: capitalEvolutionData[playerName][0], // Data for the first repetition
+                    fill: false,
+                    borderColor: getRandomColor(),
+                    tension: 0.1
+                });
+            }
+        }
+    }
+
+    if (datasets.length === 0) {
+        // console.log("No data available for capital evolution chart (first repetition).");
+        ctx.clearRect(0, 0, chartCanvas.width, chartCanvas.height); // Clear canvas
+        noDataMessage.style.display = 'block'; // Show no-data message
+        chartCanvas.style.display = 'none'; // Hide canvas
+        return; // Don't create an empty chart
+    }
+
+    capitalEvolutionChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true, // You might want to set this to false if you have specific sizing needs for the container
+            animation: {
+                duration: 500 // Optional: add a subtle animation
+            },
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Spin Number'
+                    },
+                    beginAtZero: true
+                },
+                y: {
+                    title: {
+                        display: true,
+                        text: 'Capital'
+                    },
+                    beginAtZero: false // Capital can be negative if bets can lead to debt, or start from 0
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                }
+            }
+        }
+    });
+}
+
+
+function displayPlayerStatistics(playerStats) {
+    const displayDiv = document.getElementById('player-statistics-display');
+    if (!displayDiv) {
+        console.error("Elemento 'player-statistics-display' no encontrado.");
+        return;
+    }
+
+    let contentHTML = ""; // Start with an empty string, the heading is already in index.html
+
+    if (Object.keys(playerStats).length === 0) {
+        contentHTML = "<p>No hay estadísticas de jugadores para mostrar.</p>";
+    } else {
+        for (const playerName in playerStats) {
+            if (playerStats.hasOwnProperty(playerName)) {
+                const stats = playerStats[playerName];
+                contentHTML += `<div class="player-stat">`;
+                contentHTML += `<strong>${playerName}:</strong><ul>`;
+                contentHTML += `<li>Media del Capital Final: ${stats.mean.toFixed(2)}</li>`;
+                contentHTML += `<li>Varianza del Capital Final: ${stats.variance.toFixed(2)}</li>`;
+                contentHTML += `<li>Desv. Estándar del Capital Final: ${stats.stdDev.toFixed(2)}</li>`;
+                contentHTML += `</ul></div>`;
+            }
+        }
+    }
+    displayDiv.innerHTML = contentHTML;
+}
+
+
+function displayFinalCapitalHistogram(finalCapitalsData) {
+    const container = document.getElementById('final-capital-histogram-container');
+    if (!container) {
+        console.error("Container 'final-capital-histogram-container' not found.");
+        return;
+    }
+    const chartCanvas = container.querySelector('canvas');
+    const noDataMessage = container.querySelector('.no-data-message');
+
+    if (!chartCanvas || !noDataMessage) {
+        console.error("Canvas element or no-data-message not found within 'final-capital-histogram-container'.");
+        return;
+    }
+    const ctx = chartCanvas.getContext('2d');
+
+    if (finalCapitalHistogramChart) {
+        finalCapitalHistogramChart.destroy();
+        finalCapitalHistogramChart = null; // Ensure it's reset
+    }
+
+    // Hide no-data message by default, show if needed
+    noDataMessage.style.display = 'none';
+    chartCanvas.style.display = 'block'; // Show canvas by default
+
+    const playerNames = Object.keys(finalCapitalsData);
+    if (playerNames.length === 0) {
+        // console.log("No player data available for histogram.");
+        ctx.clearRect(0, 0, chartCanvas.width, chartCanvas.height);
+        noDataMessage.style.display = 'block';
+        chartCanvas.style.display = 'none';
+        return;
+    }
+
+    const firstPlayerName = playerNames[0]; // Using data for the first player
+    const values = finalCapitalsData[firstPlayerName];
+
+    if (!values || values.length === 0) {
+        // console.log(`No final capital data for ${firstPlayerName}.`);
+        ctx.clearRect(0, 0, chartCanvas.width, chartCanvas.height);
+        noDataMessage.style.display = 'block';
+        chartCanvas.style.display = 'none';
+        return;
+    }
+
+    // Binning logic
+    const numBins = 15;
+    const minValue = Math.min(...values);
+    const maxValue = Math.max(...values);
+
+    if (minValue === maxValue) {
+        // Handle single value case: one bin centered at the value
+        const binLabels = [`${minValue.toFixed(0)}`];
+        const binCounts = [values.length];
+        finalCapitalHistogramChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: binLabels,
+                datasets: [{
+                    label: `Final Capital Distribution for ${firstPlayerName}`,
+                    data: binCounts,
+                    backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1
+                }]
+            }, // Note: Options were missing here in the original snippet for single value case, should be similar to main chart
+            options: { // Adding similar options for consistency
+                responsive: true,
+                maintainAspectRatio: true,
+                scales: {
+                    x: { title: { display: true, text: 'Final Capital Bins' } },
+                    y: { title: { display: true, text: 'Frequency (Number of Repetitions)' }, beginAtZero: true }
+                },
+                plugins: { legend: { display: true, position: 'top' } }
+            }
+        });
+        return;
+    }
+
+    const binWidth = (maxValue - minValue) / numBins;
+    const binCounts = Array(numBins).fill(0);
+    const binLabels = [];
+
+    for (let i = 0; i < numBins; i++) {
+        const binStart = minValue + i * binWidth;
+        const binEnd = minValue + (i + 1) * binWidth;
+        // For the last bin, make sure it includes maxValue
+        if (i === numBins - 1) {
+            binLabels.push(`${binStart.toFixed(0)} - ${maxValue.toFixed(0)}`);
+        } else {
+            binLabels.push(`${binStart.toFixed(0)} - ${binEnd.toFixed(0)}`);
+        }
+    }
+
+    for (const value of values) {
+        if (value === maxValue) {
+            binCounts[numBins - 1]++; // maxValue goes into the last bin
+        } else {
+            const binIndex = Math.floor((value - minValue) / binWidth);
+            if (binIndex >= 0 && binIndex < numBins) {
+                binCounts[binIndex]++;
+            }
+        }
+    }
+
+    finalCapitalHistogramChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: binLabels,
+            datasets: [{
+                label: `Final Capital Distribution for ${firstPlayerName}`,
+                data: binCounts,
+                backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                x: {
+                    title: { display: true, text: 'Final Capital Bins' },
+                    ticks: {
+                        maxRotation: 70, // Rotate labels if they overlap
+                        minRotation: 45
+                    }
+                },
+                y: {
+                    title: { display: true, text: 'Frequency (Number of Repetitions)' },
+                    beginAtZero: true
+                }
+            },
+            plugins: {
+                legend: {
+                    display: true, // True by default, but good to be explicit
+                    position: 'top',
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                }
+            }
+        }
+    });
+}
+
+
+function displayBankrollSimulationResults(bankruptciesData, totalRepetitions) {
+    const displayDiv = document.getElementById('bankroll-simulation-display');
+    if (!displayDiv) {
+        console.error("Elemento 'bankroll-simulation-display' no encontrado.");
+        return;
+    }
+
+    let contentHTML = ""; // Start with an empty string, heading is in index.html
+
+    if (Object.keys(bankruptciesData).length === 0 || totalRepetitions <= 0) {
+        contentHTML = "<p>No hay datos de simulación de bancarrota para mostrar o número de repeticiones inválido.</p>";
+    } else {
+        for (const playerName in bankruptciesData) {
+            if (bankruptciesData.hasOwnProperty(playerName)) {
+                const data = bankruptciesData[playerName];
+                const bankruptcyCount = data.count;
+                const bankruptcyPercentage = (bankruptcyCount / totalRepetitions * 100).toFixed(2);
+
+                contentHTML += `<div class="bankroll-stat">`;
+                contentHTML += `<strong>${playerName}:</strong><ul>`;
+                contentHTML += `<li>Veces en Bancarrota: ${bankruptcyCount} (de ${totalRepetitions} repeticiones)</li>`;
+                contentHTML += `<li>Porcentaje de Bancarrota: ${bankruptcyPercentage}%</li>`;
+
+                if (data.spinsWhenBankrupt && data.spinsWhenBankrupt.length > 0) {
+                    const averageSpinsSurvived = data.spinsWhenBankrupt.reduce((acc, val) => acc + val, 0) / data.spinsWhenBankrupt.length;
+                    contentHTML += `<li>Promedio de Giros Sobrevividos (en bancarrotas): ${averageSpinsSurvived.toFixed(1)} giros</li>`;
+                } else if (bankruptcyCount > 0) {
+                    // This case might occur if count is positive but spinsWhenBankrupt is empty (shouldn't happen with current logic)
+                    contentHTML += `<li>Promedio de Giros Sobrevividos: N/A (datos incompletos)</li>`;
+                } else {
+                    contentHTML += `<li>Promedio de Giros Sobrevividos: N/A (nunca quebró)</li>`;
+                }
+                contentHTML += `</ul></div>`;
+            }
+        }
+    }
+    displayDiv.innerHTML = contentHTML;
+}
+
 
 })(); // IIFE End
