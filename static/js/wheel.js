@@ -209,11 +209,11 @@ function initApp() {
                     }
 
                     // Mostrar gráfico de evolución de capital
-                    if (results.evolucionCapital && results.giros_por_repeticion) {
+                    if (results.evolucionCapital && results.girosPorRepeticion) {
                         // Comprobar si hay datos de jugadores para mostrar
                         const playerNames = Object.keys(results.evolucionCapital);
                         if (playerNames.length > 0 && results.evolucionCapital[playerNames[0]].length > 0) {
-                             displayCapitalEvolutionChart(results.evolucionCapital, results.giros_por_repeticion);
+                             displayCapitalEvolutionChart(results.evolucionCapital, results.girosPorRepeticion);
                         } else {
                             // Manejar caso sin datos de evolución de capital (ej., limpiar gráfico anterior o mostrar mensaje)
                             if (capitalEvolutionChart) {
